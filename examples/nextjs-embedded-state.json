@@ -1,0 +1,23 @@
+{
+  "name": "Next.js listing page (embedded JSON)",
+  "description": "Reads the server-rendered state of a Next.js page (script#__NEXT_DATA__) and a window.__INITIAL_STATE__ assignment instead of the DOM.",
+  "slug": "nextjs-listing-state",
+  "visibility": "private",
+  "url": "https://homes.example.com/for-sale/austin-tx",
+  "method": "GET",
+  "useProxy": true,
+  "renderJavascript": false,
+  "category": "real-estate",
+  "tags": ["nextjs", "embedded-json"],
+  "extractorConfig": {
+    "version": "v1.0",
+    "fields": [
+      { "name": "city", "selector": "script#__NEXT_DATA__", "extract": "jsonContent", "jsonPaths": ["props.pageProps.search.city"] },
+      { "name": "totalResults", "selector": "script#__NEXT_DATA__", "extract": "jsonContent", "jsonPaths": ["props.pageProps.search.total"] },
+      { "name": "listings", "selector": "script#__NEXT_DATA__", "extract": "jsonContent", "jsonPaths": ["props.pageProps.search.listings"] },
+      { "name": "firstListingPrice", "selector": "script#__NEXT_DATA__", "extract": "jsonContent", "jsonPaths": ["props.pageProps.search.listings[0].price"] },
+      { "name": "agent", "selector": "script#__window__INITIAL_STATE", "extract": "jsonContent", "jsonPaths": ["agent.name", "agent.phone"] },
+      { "name": "pageTitle", "selector": "head title", "extract": "textContent", "transforms": ["trim"] }
+    ]
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "name": "JS-rendered job search results",
+  "description": "Job search results that a single-page app renders in the browser: waits for the result cards, dismisses the cookie banner, scrolls to load more, then extracts each card.",
+  "slug": "spa-job-search",
+  "visibility": "private",
+  "url": "https://jobs.example.com/search?q=data+engineer",
+  "method": "GET",
+  "useProxy": true,
+  "renderJavascript": true,
+  "browserActions": [
+    { "type": "wait_for_element", "selector": { "type": "css", "value": "#results [data-testid=\"job-card\"]" }, "timeout_s": 10 },
+    { "type": "click", "selector": { "type": "css", "value": "button#accept-cookies" }, "wait_after_s": 1, "on_error": "skip" },
+    { "type": "scroll_to_bottom", "timeout_s": 5, "on_error": "skip" }
+  ],
+  "category": "job-listings",
+  "tags": ["jobs", "javascript"],
+  "extractorConfig": {
+    "version": "v1.0",
+    "fields": [
+      {
+        "name": "jobs",
+        "selector": "#results [data-testid=\"job-card\"]:not(.is-sponsored)",
+        "isArray": true,
+        "extract": "innerHTML",
+        "subExtractor": {
+          "fields": [
+            { "name": "title", "selector": "h2 a", "extract": "textContent", "transforms": ["normalizeWhitespace"] },
+            { "name": "url", "selector": "h2 a[href]", "extract": "attributeValue", "attributeName": "href", "transforms": ["toAbsoluteUrl"] },
+            { "name": "company", "selector": "[data-testid=\"company\"]", "extract": "textContent", "transforms": ["trim"] },
+            { "name": "location", "selector": "[data-testid=\"location\"]", "extract": "textContent", "transforms": ["trim"] },
+            { "name": "postedAt", "selector": "time[datetime]", "extract": "attributeValue", "attributeName": "datetime" },
+            { "name": "salary", "selector": [".salary--estimated", ".salary"], "combineStrategy": "first", "extract": "textContent", "transforms": ["normalizeWhitespace"] },
+            { "name": "skills", "selector": "ul.skills li", "isArray": true, "extract": "textContent", "transforms": ["trim"] }
+          ]
+        }
+      },
+      { "name": "totalJobs", "selector": "#results-count", "extract": "textContent", "transforms": ["parseCompactNumber"] }
+    ]
+  }
+}

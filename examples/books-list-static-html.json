@@ -1,0 +1,35 @@
+{
+  "name": "Books to Scrape - catalogue page",
+  "description": "Every book on a books.toscrape.com catalogue page (title, URL, price, availability, cover) plus the result count and next-page URL.",
+  "slug": "books-toscrape-list",
+  "visibility": "private",
+  "url": "https://books.toscrape.com/catalogue/page-1.html",
+  "method": "GET",
+  "useProxy": true,
+  "renderJavascript": false,
+  "category": "ecommerce",
+  "tags": ["books", "catalogue", "list"],
+  "extractorConfig": {
+    "version": "v1.0",
+    "fields": [
+      {
+        "name": "books",
+        "selector": "ol.row article.product_pod",
+        "isArray": true,
+        "extract": "innerHTML",
+        "subExtractor": {
+          "fields": [
+            { "name": "title", "selector": "h3 a[title]", "extract": "attributeValue", "attributeName": "title" },
+            { "name": "url", "selector": "h3 a[href]", "extract": "attributeValue", "attributeName": "href", "transforms": ["toAbsoluteUrl"] },
+            { "name": "price", "selector": "p.price_color", "extract": "textContent", "transforms": ["extractPrice"] },
+            { "name": "availability", "selector": "p.availability", "extract": "textContent", "transforms": ["normalizeWhitespace"] },
+            { "name": "inStock", "selector": "p.availability i.icon-ok", "extract": "exists" },
+            { "name": "imageUrl", "selector": "img.thumbnail[src]", "extract": "attributeValue", "attributeName": "src", "transforms": ["toAbsoluteUrl"] }
+          ]
+        }
+      },
+      { "name": "resultCount", "selector": "form.form-horizontal strong", "extract": "textContent", "transforms": ["toInteger"] },
+      { "name": "nextPageUrl", "selector": "li.next a[href]", "extract": "attributeValue", "attributeName": "href", "transforms": ["toAbsoluteUrl"] }
+    ]
+  }
+}

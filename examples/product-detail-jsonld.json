@@ -1,0 +1,42 @@
+{
+  "name": "Shop product page (JSON-LD + DOM)",
+  "description": "Product detail: price, currency and SKU from JSON-LD; name, brand, original price, stock, images, description, breadcrumbs, specs and review count from the page.",
+  "slug": "shop-product-detail",
+  "visibility": "private",
+  "url": "https://shop.example.com/products/oak-desk-lamp",
+  "method": "GET",
+  "useProxy": true,
+  "renderJavascript": false,
+  "allowJsEscalation": true,
+  "proxyCountry": "US",
+  "category": "ecommerce",
+  "tags": ["product", "json-ld"],
+  "extractorConfig": {
+    "version": "v1.0",
+    "fields": [
+      { "name": "name", "selector": "main h1[itemprop=\"name\"]", "extract": "textContent", "transforms": ["normalizeWhitespace"] },
+      { "name": "price", "selector": "script[type=\"application/ld+json\"]", "extract": "jsonContent", "jsonPaths": ["offers.price"], "transforms": ["toNumber"] },
+      { "name": "currency", "selector": "script[type=\"application/ld+json\"]", "extract": "jsonContent", "jsonPaths": ["offers.priceCurrency"] },
+      { "name": "sku", "selector": "script[type=\"application/ld+json\"]", "extract": "jsonContent", "jsonPaths": ["sku"] },
+      { "name": "brand", "selector": "main [itemprop=\"brand\"]", "extract": "textContent", "transforms": ["trim"] },
+      { "name": "originalPrice", "selector": "main .price-box del", "extract": "textContent", "transforms": ["extractPrice"] },
+      { "name": "inStock", "selector": "main [data-testid=\"add-to-cart\"]:not([disabled])", "extract": "exists" },
+      { "name": "images", "selector": "main .gallery img[data-src]", "isArray": true, "extract": "attributeValue", "attributeName": "data-src", "transforms": ["toAbsoluteUrl"] },
+      { "name": "description", "selector": "meta[property=\"og:description\"][content]", "extract": "attributeValue", "attributeName": "content" },
+      { "name": "breadcrumbs", "selector": "nav.breadcrumb li", "isArray": true, "extract": "textContent", "transforms": ["trim"] },
+      {
+        "name": "specs",
+        "selector": "main table.specs tr",
+        "isArray": true,
+        "extract": "innerHTML",
+        "subExtractor": {
+          "fields": [
+            { "name": "label", "selector": "th", "extract": "textContent", "transforms": ["trim"] },
+            { "name": "value", "selector": "td", "extract": "textContent", "transforms": ["trim"] }
+          ]
+        }
+      },
+      { "name": "reviewCount", "selector": "main [itemprop=\"reviewCount\"][content]", "extract": "attributeValue", "attributeName": "content", "transforms": ["toInteger"] }
+    ]
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "name": "POST search API (JSON body)",
+  "description": "Calls a JSON search endpoint with POST and a JSON body (direct request, so the Content-Type header is sent) and maps the hits and pagination.",
+  "slug": "post-search-api",
+  "visibility": "private",
+  "url": "https://api.example.com/v1/search",
+  "method": "POST",
+  "body": "{\"query\":\"espresso machine\",\"page\":1,\"pageSize\":20}",
+  "headers": { "Content-Type": "application/json", "Accept": "application/json" },
+  "useProxy": false,
+  "category": "ecommerce",
+  "tags": ["post", "json", "api"],
+  "extractorConfig": {
+    "version": "v1.0",
+    "sourceType": "json",
+    "fields": [
+      { "name": "total", "jsonPath": "meta.total" },
+      {
+        "name": "hits",
+        "jsonPath": "data.hits",
+        "subExtractor": {
+          "fields": [
+            { "name": "id", "jsonPath": "id" },
+            { "name": "name", "jsonPath": "attributes.name", "transforms": ["normalizeWhitespace"] },
+            { "name": "price", "jsonPath": "attributes.price.amount", "transforms": ["toNumber"] },
+            { "name": "tags", "jsonPath": "attributes.tags[*].label" }
+          ]
+        }
+      },
+      {
+        "name": "pagination",
+        "subFields": [
+          { "name": "page", "jsonPath": "meta.page" },
+          { "name": "hasMore", "jsonPath": "meta.hasMore", "transforms": ["toBoolean"] }
+        ]
+      }
+    ]
+  }
+}

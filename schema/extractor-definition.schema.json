@@ -1,0 +1,301 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://extracthub.io/schemas/extractor-definition.schema.json",
+  "title": "ExtractHub extractor definition",
+  "description": "Structure of an ExtractHub extractor definition: request options + extractorConfig, using the same field names as the ExtractHub Studio save form and the MCP create_extractor / update_extractor tools. Structure only: the ExtractHub validator (MCP validate_extractor_config) is the authority.",
+  "type": "object",
+  "required": ["name", "url", "extractorConfig"],
+  "additionalProperties": false,
+  "properties": {
+    "name": { "type": "string", "minLength": 1, "description": "Display name" },
+    "description": { "type": "string" },
+    "slug": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 100,
+      "pattern": "^[a-z0-9](?:[a-z0-9]|-(?!-))*[a-z0-9]$",
+      "description": "URL slug of the extractor id @username/slug (lowercase letters, digits, single hyphens). Create only."
+    },
+    "visibility": { "enum": ["private", "unlisted", "public"], "description": "Create only; default private" },
+    "url": { "type": "string", "pattern": "^https?://", "description": "Example target URL (the page the extractor is built and tested on)" },
+    "method": { "enum": ["GET", "POST"] },
+    "body": { "type": "string", "description": "Request body for POST (sent as-is)" },
+    "headers": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "description": "Custom request headers (Cookie included). Not sent when the request goes through the scraping proxy (useProxy true); only sent on direct requests (useProxy false). Scraping providers manage headers for ban avoidance. A JSON API that needs auth headers must use useProxy false."
+    },
+    "useProxy": { "type": "boolean", "description": "Fetch through ExtractHub's proxy network (required for JS rendering, XHR capture, browser actions, proxyCountry, allowJsEscalation). Custom headers are not sent through the proxy" },
+    "renderJavascript": { "type": "boolean", "description": "Render the page in a headless browser (JS tier)" },
+    "captureXhr": { "type": "boolean", "description": "Return the page's captured XHR/fetch responses as a JSON array instead of HTML (needs renderJavascript; use sourceType json)" },
+    "xhrUrlFilter": { "type": "string", "description": "Comma-separated substrings; only captured XHR responses whose URL contains one of them are kept" },
+    "browserActions": { "type": "array", "items": { "$ref": "#/$defs/browserAction" } },
+    "proxyCountry": {
+      "type": ["string", "null"],
+      "pattern": "^([A-Za-z]{2})?$",
+      "description": "Proxy exit country, ISO 3166-1 alpha-2 (US, GB, ID ...); empty or null = default"
+    },
+    "allowJsEscalation": { "type": "boolean", "description": "Retry once with JS rendering when a plain fetch looks blocked or empty (that call is billed at the JS tier)" },
+    "waitForSelector": { "type": "string", "description": "With renderJavascript: wait (at most 15 s) until this CSS selector exists before extracting; a missing element never fails the request." },
+    "waitTime": { "type": "number", "description": "With renderJavascript: extra wait in ms after waitForSelector, capped at 15000." },
+    "category": {
+      "enum": ["ecommerce", "news", "social-media", "job-listings", "real-estate", "events", "research", "travel", "healthcare", "finance", "education", "entertainment", "sports", "other"],
+      "description": "Catalog category (shown for public extractors)"
+    },
+    "tags": { "type": "array", "items": { "type": "string" } },
+    "extractorConfig": { "$ref": "#/$defs/extractorConfig" }
+  },
+  "$defs": {
+    "transformName": {
+      "enum": [
+        "trim", "toLowerCase", "toUpperCase", "removeExtraSpaces", "stripWhitespace", "normalizeWhitespace",
+        "capitalize", "capitalizeWords", "slugify", "truncate", "truncate50", "truncate200",
+        "removeHtmlTags", "decodeHtml", "decodeUri", "encodeUri", "extractDomain", "extractUrl", "toAbsoluteUrl",
+        "toNumber", "toInteger", "extractNumber", "extractPrice", "extractNumberDotThousands", "extractNumberCommaThousands",
+        "parseCompactNumber", "toBoolean", "parseJson", "toJson",
+        "splitByComma", "splitByPipe", "splitByNewline", "joinWithComma", "joinWithSpace", "first", "last", "unique", "compact",
+        "nullIfEmpty", "emptyIfNull", "removeCommonJunk", "extractDigits", "extractLetters", "extractAlphanumeric",
+        "removeLeadingZeros", "reverse", "coalesce", "toMarkdown"
+      ]
+    },
+    "transforms": { "type": "array", "items": { "$ref": "#/$defs/transformName" } },
+    "fieldName": { "type": "string", "minLength": 1, "description": "Key in the output. Use camelCase (the checker warns otherwise)." },
+    "extractType": { "enum": ["textContent", "attributeValue", "attributeValues", "innerHTML", "exists", "count", "jsonContent"] },
+    "selector": {
+      "anyOf": [
+        { "type": "string", "minLength": 1 },
+        { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }
+      ]
+    },
+    "excludeTags": {
+      "type": "array",
+      "items": {
+        "anyOf": [
+          { "type": "string" },
+          {
+            "type": "object",
+            "required": ["tag"],
+            "additionalProperties": false,
+            "properties": {
+              "tag": { "type": "string" },
+              "hasAttributeValue": {
+                "type": "array",
+                "items": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "string" } }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "extractorConfig": {
+      "type": "object",
+      "required": ["version", "fields"],
+      "additionalProperties": false,
+      "properties": {
+        "version": { "const": "v1.0" },
+        "sourceType": { "enum": ["html", "json"] },
+        "fields": { "type": "array", "minItems": 1 }
+      },
+      "if": { "required": ["sourceType"], "properties": { "sourceType": { "const": "json" } } },
+      "then": { "properties": { "fields": { "items": { "$ref": "#/$defs/jsonField" } } } },
+      "else": { "properties": { "fields": { "items": { "$ref": "#/$defs/htmlField" } } } }
+    },
+    "htmlField": {
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "$ref": "#/$defs/fieldName" },
+        "selector": { "$ref": "#/$defs/selector" },
+        "isArray": { "type": "boolean" },
+        "extract": { "$ref": "#/$defs/extractType" },
+        "attributeName": { "type": "string", "minLength": 1 },
+        "attributeNames": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "excludeTags": { "$ref": "#/$defs/excludeTags" },
+        "allowedAttributes": { "type": "array", "items": { "type": "string" } },
+        "textSeparator": { "type": "string" },
+        "combineStrategy": { "enum": ["first", "last", "concat", "array"] },
+        "concatSeparator": { "type": "string" },
+        "keyValueSeparator": { "type": "string" },
+        "attributeSeparator": { "type": "string" },
+        "jsonPaths": { "type": "array", "items": { "type": "string" } },
+        "transforms": { "$ref": "#/$defs/transforms" },
+        "subExtractor": {
+          "type": "object",
+          "required": ["fields"],
+          "additionalProperties": false,
+          "properties": { "fields": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/htmlField" } } }
+        },
+        "subFields": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/htmlSubField" } },
+        "group": {
+          "type": "object",
+          "required": ["into", "strategy"],
+          "additionalProperties": false,
+          "properties": {
+            "into": { "$ref": "#/$defs/fieldName" },
+            "strategy": { "enum": ["merge", "nest"] }
+          }
+        }
+      },
+      "if": { "required": ["subFields"] },
+      "then": {
+        "required": ["isArray"],
+        "not": { "required": ["selector"] }
+      },
+      "else": { "required": ["selector"] }
+    },
+    "htmlSubField": {
+      "type": "object",
+      "required": ["name", "selector"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "$ref": "#/$defs/fieldName" },
+        "selector": { "$ref": "#/$defs/selector" },
+        "extract": { "$ref": "#/$defs/extractType" },
+        "attributeName": { "type": "string", "minLength": 1 },
+        "attributeNames": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "excludeTags": { "$ref": "#/$defs/excludeTags" },
+        "allowedAttributes": { "type": "array", "items": { "type": "string" } },
+        "textSeparator": { "type": "string" },
+        "combineStrategy": { "enum": ["first", "last", "concat", "array"] },
+        "concatSeparator": { "type": "string" },
+        "keyValueSeparator": { "type": "string" },
+        "attributeSeparator": { "type": "string" },
+        "jsonPaths": { "type": "array", "items": { "type": "string" } },
+        "transforms": { "$ref": "#/$defs/transforms" },
+        "subExtractor": {
+          "type": "object",
+          "required": ["fields"],
+          "additionalProperties": false,
+          "properties": { "fields": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/htmlField" } } }
+        }
+      }
+    },
+    "jsonField": {
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "$ref": "#/$defs/fieldName" },
+        "jsonPath": { "type": "string", "minLength": 1 },
+        "transforms": { "$ref": "#/$defs/transforms" },
+        "subFields": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["name", "jsonPath"],
+            "additionalProperties": false,
+            "properties": {
+              "name": { "$ref": "#/$defs/fieldName" },
+              "jsonPath": { "type": "string", "minLength": 1 },
+              "transforms": { "$ref": "#/$defs/transforms" }
+            }
+          }
+        },
+        "subExtractor": {
+          "type": "object",
+          "required": ["fields"],
+          "additionalProperties": false,
+          "properties": { "fields": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/jsonField" } } }
+        }
+      },
+      "anyOf": [{ "required": ["jsonPath"] }, { "required": ["subFields"] }]
+    },
+    "actionSelector": {
+      "type": "object",
+      "required": ["type", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "enum": ["css", "xpath", "text"] },
+        "value": { "type": "string", "minLength": 1 }
+      }
+    },
+    "onError": { "enum": ["error", "skip"] },
+    "browserAction": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "enum": ["click", "input", "scroll", "scroll_to_bottom", "wait", "wait_for_element"] }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "const": "click" } } },
+          "then": {
+            "required": ["selector"],
+            "additionalProperties": false,
+            "properties": {
+              "type": true,
+              "selector": { "$ref": "#/$defs/actionSelector" },
+              "wait_after_s": { "type": "integer", "minimum": 0 },
+              "on_error": { "$ref": "#/$defs/onError" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "input" } } },
+          "then": {
+            "required": ["selector", "value"],
+            "additionalProperties": false,
+            "properties": {
+              "type": true,
+              "selector": { "$ref": "#/$defs/actionSelector" },
+              "value": { "type": "string" },
+              "on_error": { "$ref": "#/$defs/onError" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "scroll" } } },
+          "then": {
+            "required": ["x", "y"],
+            "additionalProperties": false,
+            "properties": {
+              "type": true,
+              "x": { "type": "integer" },
+              "y": { "type": "integer" },
+              "on_error": { "$ref": "#/$defs/onError" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "scroll_to_bottom" } } },
+          "then": {
+            "required": ["timeout_s"],
+            "additionalProperties": false,
+            "properties": {
+              "type": true,
+              "timeout_s": { "type": "integer", "minimum": 1 },
+              "on_error": { "$ref": "#/$defs/onError" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "wait" } } },
+          "then": {
+            "required": ["wait_time_s"],
+            "additionalProperties": false,
+            "properties": {
+              "type": true,
+              "wait_time_s": { "type": "integer", "minimum": 1 },
+              "on_error": { "$ref": "#/$defs/onError" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "wait_for_element" } } },
+          "then": {
+            "required": ["selector", "timeout_s"],
+            "additionalProperties": false,
+            "properties": {
+              "type": true,
+              "selector": { "$ref": "#/$defs/actionSelector" },
+              "timeout_s": { "type": "integer", "minimum": 1 },
+              "on_error": { "$ref": "#/$defs/onError" }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

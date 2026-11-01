@@ -1,0 +1,32 @@
+{
+  "name": "DummyJSON products API",
+  "description": "Products from a public JSON API: total count and each product's id, title, price, rating, brand and thumbnail, plus the first image of each product.",
+  "slug": "dummyjson-products",
+  "visibility": "private",
+  "url": "https://dummyjson.com/products?limit=10",
+  "method": "GET",
+  "useProxy": true,
+  "renderJavascript": false,
+  "category": "research",
+  "tags": ["json", "api"],
+  "extractorConfig": {
+    "version": "v1.0",
+    "sourceType": "json",
+    "fields": [
+      { "name": "total", "jsonPath": "total" },
+      {
+        "name": "products",
+        "jsonPath": "products[*]",
+        "subFields": [
+          { "name": "id", "jsonPath": "id" },
+          { "name": "title", "jsonPath": "title", "transforms": ["trim"] },
+          { "name": "price", "jsonPath": "price", "transforms": ["toNumber"] },
+          { "name": "rating", "jsonPath": "rating" },
+          { "name": "brand", "jsonPath": "brand" },
+          { "name": "thumbnailUrl", "jsonPath": "thumbnail" }
+        ]
+      },
+      { "name": "firstImageOfEach", "jsonPath": "products[*].images[0]" }
+    ]
+  }
+}
