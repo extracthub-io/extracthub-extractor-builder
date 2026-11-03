@@ -76,7 +76,7 @@ Options:
   `imageUrls`, `productUrl`, `postedAt`.
 - One field per requested value; no duplicates reading the same element.
 - Units in the name when the value is a bare number: `weightKg`, `durationMinutes`.
-- Names are the API contract: renaming or removing a field after publishing is a breaking (major) version.
+- Names are the API contract: renaming or removing a field after releasing is a breaking (major) version.
 
 ## Engine pitfalls (checklist)
 - A non-array field returns the FIRST match in document order: make sure the first match is the right one.

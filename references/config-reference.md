@@ -277,9 +277,9 @@ Empty values:
 
 ## Output types and versions
 
-When an extractor is published, ExtractHub derives an output schema from the config: number transforms
+When an extractor is released, ExtractHub derives an output schema from the config: number transforms
 (`toNumber`, `toInteger`, `extractNumber`, `extractPrice`, `extractNumberDotThousands`,
 `extractNumberCommaThousands`, `parseCompactNumber`, `count`) make a number, `toBoolean` / `exists` a boolean,
 `split*` an array, `isArray` / `[*]` an array, `subExtractor` / `subFields` an object. Renaming or removing a
 field, or changing its type or array-ness, is a breaking change (new major version). So pick names and types
-deliberately the first time: see publishing-and-versions.md.
+deliberately the first time: see releasing-and-versions.md.

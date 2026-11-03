@@ -1,6 +1,6 @@
 ---
 name: extracthub-extractor-builder
-description: Builds, tests and uploads ExtractHub extractors (web scraping definitions of request options + CSS/JSON field config that turn a page type into structured JSON). Use when the user wants to create, build, write, fix or improve an ExtractHub extractor, scrape a site or page type "with ExtractHub", turn product / listing / article / job / search pages or a JSON API into JSON through ExtractHub, or upload / publish an extractor to ExtractHub (with or without the ExtractHub MCP server).
+description: Builds, tests and uploads ExtractHub extractors (web scraping definitions of request options + CSS/JSON field config that turn a page type into structured JSON). Use when the user wants to create, build, write, fix or improve an ExtractHub extractor, scrape a site or page type "with ExtractHub", turn product / listing / article / job / search pages or a JSON API into JSON through ExtractHub, or upload / release an extractor to ExtractHub (with or without the ExtractHub MCP server).
 ---
 
 # ExtractHub extractor builder
@@ -8,14 +8,14 @@ description: Builds, tests and uploads ExtractHub extractors (web scraping defin
 An ExtractHub extractor is a JSON definition: how to fetch a page (request options) and how to turn it
 into JSON (`extractorConfig`). Callers run it on any URL of the same page type through the ExtractHub API or
 MCP `extract` tool. Your job: write a definition that is correct on the real page, validate it, upload it,
-test it, and publish it only when the user agrees.
+test it, and release it only when the user agrees.
 
 Reference files (read when needed):
 - [references/config-reference.md](references/config-reference.md): every field shape, extract type, JSON path rule and transform.
 - [references/request-options.md](references/request-options.md): proxy, JS rendering, browser actions, XHR, POST, country, price tiers, Studio import file.
 - [references/selectors-and-pitfalls.md](references/selectors-and-pitfalls.md): supported selector syntax, stable selectors, engine pitfalls.
 - [references/troubleshooting.md](references/troubleshooting.md): empty fields, wrong values, blocked pages, JS-only content, API errors.
-- [references/publishing-and-versions.md](references/publishing-and-versions.md): draft, pins, semver, visibility.
+- [references/releasing-and-versions.md](references/releasing-and-versions.md): draft, pins, semver, visibility.
 - [examples/](examples/README.md): six complete definitions (static list, product detail, JSON API, embedded JSON, JS-rendered, POST API).
 
 ## Workflow
@@ -29,7 +29,7 @@ Extractor progress:
 - [ ] 3. Definition written
 - [ ] 4. Validated (MCP validator dry run, or local checker) and fixed
 - [ ] 5. Uploaded as private draft; live-tested on @draft; output matches the dry run
-- [ ] 6. Published (only with the user's OK); pins explained
+- [ ] 6. Released (only with the user's OK); pins explained
 ```
 
 ### 1. Clarify (ask only what is missing)
@@ -92,7 +92,7 @@ Rules that matter most:
   `toAbsoluteUrl` on links/images, `extractPrice` on prices, `exists` for booleans.
 - `attributeValue`: require the attribute in the selector (`a[href]`), else a missing attribute yields `"null"`.
 - Names: camelCase, one per value, stable (renaming later is a breaking version).
-- Never put secrets (cookies, tokens) in headers or body; published definitions are visible.
+- Never put secrets (cookies, tokens) in headers or body; public and unlisted definitions are visible.
 - Custom `headers` (the `Cookie` header included) are not sent when the request goes through the scraping
   proxy (`useProxy: true`); they are only sent on direct requests (`useProxy: false`). Scraping providers manage
   headers for ban avoidance. A JSON API that needs auth headers must use `useProxy: false`. On direct requests
@@ -121,7 +121,7 @@ selectors; tell the user the definition is unverified until it runs in ExtractHu
    `useProxy`, `renderJavascript`, `captureXhr`, `xhrUrlFilter`, `browserActions`, `proxyCountry`,
    `allowJsEscalation`, `waitForSelector`, `waitTime`, `extractorConfig`, `category`, `tags`, `slug`, `visibility`). Keep `visibility`
    private unless the user asked otherwise. The slug can only be set here (later it is fixed). Note the
-   returned extractor id `@user/slug`. Creating, updating and publishing need a LIVE API key: with a test key
+   returned extractor id `@user/slug`. Creating, updating and releasing need a LIVE API key: with a test key
    (`exth_test_...`) these tools answer `live_key_required` and only `validate_extractor_config` works.
    A `validation_error` lists the failing paths in `details.errors`; `slug_taken` / `invalid_slug`: pick another.
 2. Tell the user a live test is a billed extract call (standard tier, or JS tier with JS / XHR / browser
@@ -131,27 +131,27 @@ selectors; tell the user the definition is unverified until it runs in ExtractHu
 3. Compare with the dry run. If they differ or fields are empty, see references/troubleshooting.md, fix the
    definition, `update_extractor`, and test again. Stop after a few rounds and report what still fails.
 
-### 6. Publish (only when the user agrees)
-`publish_extractor` creates an immutable version (first one `1.0.0`; later bumps follow the output-schema
+### 6. Release (only when the user agrees)
+`release_extractor` creates an immutable version (first one `1.0.0`; later bumps follow the output-schema
 change). Like the Studio, it checks the draft on a sample page first: pass `sample_html` (or `sample_json`)
 with the page you fetched, or `fetch_sample: true` to let ExtractHub fetch the example URL once (one billed
 extract; tell the user). Call it with `dry_run: true` first and show the user the planned version and schema
 diff, then call it again without `dry_run`. Optional: `bump` (may raise, never lower: `bump_too_low`),
-`changelog` (`changelog_required` when a version needs one). `nothing_to_publish` means the draft equals the
-latest version; `publish_check_failed` lists what blocks it (fix with `update_extractor`). Explain: consumers should call `@user/slug@1` (latest 1.x, gets fixes, never breaking changes) or an
-exact `@user/slug@1.0.0`; `@draft` is owner-only. Ask before switching visibility to `unlisted` or `public`.
-Details: references/publishing-and-versions.md.
+`changelog` (`changelog_required` when a version needs one). `nothing_to_release` means the draft equals the
+latest version; `release_check_failed` lists what blocks it (fix with `update_extractor`). Explain: consumers should call `@user/slug@1` (latest 1.x, gets fixes, never breaking changes) or an
+exact `@user/slug@1.0.0`; `@draft` is owner-only. Ask before switching visibility to `unlisted` or `public` (public only after a release, else `release_required`).
+Details: references/releasing-and-versions.md.
 
 ### Without the MCP server
 Deliver:
 1. The definition JSON (validated with `scripts/check-config.mjs`).
 2. A Studio import file: `node scripts/check-config.mjs my-extractor.json --studio-out my-extractor.studio.json`.
    The user opens ExtractHub → Extractor Studio → ⋮ menu → **Import**, picks the file, checks the preview on
-   the fetched page, then **Save** (and Publish). Browser actions are not in the import file: tell the user
+   the fetched page, then **Save** (and Release). Browser actions are not in the import file: tell the user
    to add them in the Studio "Browser actions" panel (list them).
 3. How to connect the MCP server next time (see the skill README): it makes steps 4-6 automatic.
 
 ## Final answer to the user
 Report: the extractor id and pins (if uploaded), fetch mode and why, the fields with a sample of the real
 output, the price tier (standard or JS), anything unverified or fragile (generated classes, positional
-selectors), and the next step (publish, or fixes needed).
+selectors), and the next step (release, or fixes needed).

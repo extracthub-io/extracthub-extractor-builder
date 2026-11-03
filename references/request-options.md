@@ -23,7 +23,7 @@ How ExtractHub fetches the page before extraction. These are the top-level keys 
 | `name` | string | required | Display name |
 | `description` | string | | What it extracts, from which page type |
 | `slug` | string | from name | Create only. `@username/<slug>`: lowercase letters, digits, single hyphens, 3-100 chars |
-| `visibility` | `private` \| `unlisted` \| `public` | `private` | Create only (change later on publish / in Studio) |
+| `visibility` | `private` \| `unlisted` \| `public` | `private` | Create / update; `public` needs a released version (`release_required`) |
 | `url` | string | required | Example target URL; callers pass their own URL of the same page type |
 | `method` | `GET` \| `POST` | `GET` | |
 | `body` | string | | POST body, sent as-is |
@@ -42,7 +42,7 @@ How ExtractHub fetches the page before extraction. These are the top-level keys 
 | `extractorConfig` | object | required | See config-reference.md |
 
 Callers of the extract API can override the URL (always) and the POST headers/body (their own request);
-everything else comes from the published version.
+everything else comes from the released version.
 
 ## Choosing a fetch mode
 
@@ -134,7 +134,7 @@ stable and needs no browser cookies, calling it directly (no JS) is cheaper and 
 
 - Callers of the extract API (POST `target.headers`) replace the saved headers; the same rule applies: they are
   sent only when the extractor version fetches directly (`useProxy: false`).
-- Never put secrets (session cookies, private tokens) into a definition: published versions are visible to
+- Never put secrets (session cookies, private tokens) into a definition: released versions are visible to
   everyone who can see the extractor.
 
 ## Price tiers

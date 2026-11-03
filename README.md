@@ -4,7 +4,7 @@ An [Agent Skill](https://platform.claude.com/docs/en/agents-and-tools/agent-skil
 AI agent to build [ExtractHub](https://extracthub.io) extractors: it inspects the page you name, picks the
 cheapest fetch mode that works (plain HTML, embedded JSON, JSON API, JavaScript rendering, XHR capture,
 browser actions), writes the extractor definition, validates it, uploads it as a private draft, tests it and
-publishes it when you say so.
+releases it when you say so.
 
 Ask your agent things like:
 - "Create an ExtractHub extractor for this shop's search result pages: title, price, rating, link."
@@ -21,7 +21,7 @@ extracthub-extractor-builder/
 │   ├── request-options.md           proxy, JS rendering, browser actions, XHR, POST, price tiers, Studio import
 │   ├── selectors-and-pitfalls.md    supported selectors, stable selector strategy, engine pitfalls
 │   ├── troubleshooting.md           empty fields, blocked pages, JS-only content, API errors
-│   └── publishing-and-versions.md   draft, pins (@1, @1.2.3, @draft), semver, visibility
+│   └── releasing-and-versions.md   draft, pins (@1, @1.2.3, @draft), semver, visibility
 ├── examples/                        6 complete definitions + notes
 ├── schema/extractor-definition.schema.json
 ├── scripts/check-config.mjs         zero-dependency structure checker (Node 18+)
@@ -58,7 +58,7 @@ agent, point it at `SKILL.md` as instructions and keep the folder next to it so 
 
 ## Connect the ExtractHub MCP server (recommended)
 
-With the MCP server the agent can validate against the real engine, upload, test and publish by itself.
+With the MCP server the agent can validate against the real engine, upload, test and release by itself.
 Without it, the agent gives you the definition and a Studio import file instead.
 
 1. Create an API key in the ExtractHub dashboard (API keys page). The "Use with MCP" card shows ready-made
@@ -93,10 +93,11 @@ More: https://extracthub.io/mcp
 ### Test key vs live key
 - Test keys (`exth_test_...`) are free and never fetch pages: extract calls return simulated results. Good
   for wiring up a pipeline; useless for checking whether selectors work.
-- Live keys fetch the real page and are billed per successful URL (standard tier, or the JS tier when the
-  extractor renders JavaScript, captures XHR or runs browser actions). The agent tells you before it runs a
-  live test. Validation (dry runs on HTML the agent already fetched) costs nothing.
-- Creating, updating and publishing extractors need a live key (no credit is used for these themselves);
+- Live keys fetch the real page and are billed per URL (standard tier, or the JS tier when the extractor
+  renders JavaScript, captures XHR or runs browser actions). A call that fails after the page was fetched (error
+  or block page, extraction error, provider timeout) is still charged; failures before any fetch are free. The
+  agent tells you before it runs a live test. Validation (dry runs on HTML the agent already fetched) costs nothing.
+- Creating, updating and releasing extractors need a live key (no credit is used for these themselves);
   a test key can only validate.
 
 ### Custom headers: only on direct requests
@@ -115,7 +116,7 @@ node scripts/check-config.mjs my-extractor.json --studio-out my-extractor.studio
 ```
 
 In ExtractHub open Extractor Studio → ⋮ menu → Import, pick the `.studio.json` file, check the preview, then
-Save (and Publish). Browser actions are not part of the import file; add them in the "Browser actions" panel
+Save (and Release). Browser actions are not part of the import file; add them in the "Browser actions" panel
 (use a `wait_for_element` action there instead of `waitForSelector`, which the Studio does not edit).
 
 ## The local checker

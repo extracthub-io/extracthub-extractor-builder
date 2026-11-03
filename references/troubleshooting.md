@@ -92,4 +92,4 @@ skeleton placeholders, "Loading...".
 | `target_error` (502) | The target page answered non-200 (blocked, 404) | Check the URL; see "Blocked" above |
 | `queue_timeout` (503) / 202 job | Busy; the request became an async job | Poll the job (`get_job`) |
 | 402 | Not enough credit | Top up |
-| 403 on `@draft` | Only the owner can run the draft | Use your own extractor / a published pin |
+| 403 on `@draft` | Only the owner can run the draft | Use your own extractor / a released pin |
