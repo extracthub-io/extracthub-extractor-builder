@@ -86,6 +86,7 @@ skeleton placeholders, "Loading...".
 | Code | Meaning | Fix |
 |---|---|---|
 | `validation_error` (400) | Bad request: unpinned extractor id, bad URL, bad option | Pin the id: `@user/slug@1`, `@user/slug@1.2.3` or `@user/slug@draft` |
+| `invalid_target` (400) | A direct fetch (`useProxy: false`) URL or redirect points to a private / internal / ExtractHub host | Use the public URL |
 | `version_yanked` (410) | That exact version was withdrawn | Use `@N` or another version |
 | `upstream_error` (502) / `upstream_timeout` (504) | Fetching failed / timed out | Retry; reduce browser action waits; try without JS |
 | `target_error` (502) | The target page answered non-200 (blocked, 404) | Check the URL; see "Blocked" above |

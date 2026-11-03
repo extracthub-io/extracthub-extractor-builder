@@ -58,7 +58,8 @@ everything else comes from the published version.
 | Plain fetch sometimes gets a block / captcha page | `allowJsEscalation: true` |
 
 Default to `useProxy: true`: most sites block or degrade plain datacenter requests. Use `useProxy: false`
-only for open APIs and pages that work without it.
+only for open APIs and pages that work without it. Direct requests only reach public http(s) hosts (no
+private, internal or ExtractHub addresses, also after a redirect), follow at most 5 redirects and read at most 5 MB.
 
 ## Proxy, country, JS escalation
 - `proxyCountry` must be a two-letter ISO 3166-1 code; empty or null means the default pool. Use it for
@@ -137,7 +138,9 @@ stable and needs no browser cookies, calling it directly (no JS) is cheaper and 
   everyone who can see the extractor.
 
 ## Price tiers
-Every extract call is billed per successful URL at one of two tiers:
+Every extract call is billed per URL at one of two tiers: on success, and also on a failure after the scraping
+provider fetched the page (target error status, block page, extraction / JSON error, provider timeout; the error
+body says `charged: true`). Failures before any provider work are not charged.
 - standard: plain fetch (no JavaScript).
 - JS: `renderJavascript`, `captureXhr` or any `browserActions` (and an escalated `allowJsEscalation` call).
 
