@@ -96,31 +96,22 @@ run, let ExtractHub fetch the sample with the exact request options of the extra
 browser actions). This is the only sample that matches production exactly. Each fetch is one billed extract
 call at the extractor's tier: tell the user first.
 
-`extract` with `return_raw_html: true` is shortened to ~64 KB in total, usually far less than a real page
-(a 614 KB Google results page came back as 5 KB of HTML). For the full page use a probe extractor and a batch:
+The MCP `extract` tool shortens `return_raw_html` to ~64 KB in total (a 614 KB Google results page came back
+as 5 KB of HTML). The REST endpoint returns the full page, exactly as the engine received it:
 
-1. Create a private probe draft once per site, with the request options you want to test and a field that
-   returns the page markup (`create_extractor`, slug e.g. `<site>-probe`). There is no delete tool in MCP:
-   reuse the probe with `update_extractor` instead of creating new ones, and tell the user they can delete
-   it in the Studio afterwards.
-   ```json
-   { "version": "v1.0", "fields": [
-     { "name": "pageHtml", "selector": "html", "extract": "innerHTML" }
-   ] }
-   ```
-2. `create_batch` with `extractor_id: "@user/<site>-probe@draft"` and the URLs (several fetches of the same
-   page type are fine; layouts and providers vary per request). Poll `get_batch` until `completed`.
-3. Download the results with the REST API (MCP `get_batch_results` shortens large pages too):
+1. Save the extractor as a draft first (`create_extractor` / `update_extractor`) with the request options you
+   want to test; the fields can be work in progress.
+2. Fetch the page through the draft with the REST API and save the raw HTML to a file:
    ```bash
-   curl -s -H "X-API-Key: $EXTRACTHUB_API_KEY" "https://api.extracthub.io/api/extractor/batch/<batch_id>/results" -o samples/batch.ndjson
+   curl -s -G -H "X-API-Key: $EXTRACTHUB_API_KEY" "https://api.extracthub.io/api/extractor/extract"      --data-urlencode "extractor_id=@user/slug@draft" --data-urlencode "target_url=<url>"      --data-urlencode "return_raw_html=true" --data-urlencode "async_fallback=false" -o samples/live-1.json
+   node -e 'const r=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));if(!r.success){console.error(JSON.stringify(r.errors??r.error));process.exit(1)}require("fs").writeFileSync(process.argv[2],r.result.rawHtml??"");console.log("provider:",r.result.metadata?.provider)' samples/live-1.json samples/live-1.html
    ```
-   The REST API takes `X-API-Key` (a `Bearer` header is rejected with `unauthorized`), and the results are
-   NDJSON: one JSON object per line, `{ url, status, result: { extracted: { pageHtml }, metadata: { provider, ... } } }`.
-4. Save each `pageHtml` as `samples/<name>.html`, wrapped in `<html>...</html>` (innerHTML drops the
-   `<html>` tag itself), and validate on these files with `scripts/validate.mjs`.
-
-The markup is rebuilt by the engine (attributes re-quoted, whitespace collapsed, comments dropped); that is
-the same parse the extractor runs on, so selectors that match there match live.
+   The REST API takes `X-API-Key` (a `Bearer` header is rejected with `unauthorized`; only the MCP endpoint
+   accepts Bearer). The answer is `{ success, result: { extracted, metadata, rawHtml } }`. With
+   `async_fallback=false` a busy queue answers 503 `queue_timeout` (retry after `Retry-After`) instead of
+   turning the call into an async job.
+3. Validate on the saved file with `scripts/validate.mjs`. For big sites repeat step 2 a few times (layouts and
+   providers vary per request: compare `metadata.provider`) and validate on each sample.
 
 ## Choosing a fetch mode
 

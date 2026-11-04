@@ -52,8 +52,8 @@ output, and the live `extract` result.
   (`on_error: "skip"`).
 - Bot protection: see the next section.
 - Ask for `return_raw_html` / look at the raw result if your tool offers it, and search it for your selectors.
-  It is shortened to ~64 KB; for the full page of that live response use a probe extractor and a batch
-  (request-options.md, "Samples through ExtractHub").
+  The MCP tool shortens it to ~64 KB; the REST endpoint returns the full page (request-options.md,
+  "Samples through ExtractHub").
 - A different layout or provider on that call: compare `metadata.provider` between runs, and sample a few
   fetches. Some empty results are genuine (e.g. a search page where the site showed only videos).
 
