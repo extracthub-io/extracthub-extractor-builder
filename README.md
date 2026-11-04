@@ -25,6 +25,7 @@ extracthub-extractor-builder/
 ├── examples/                        6 complete definitions + notes
 ├── schema/extractor-definition.schema.json
 ├── scripts/check-config.mjs         zero-dependency structure checker (Node 18+)
+├── scripts/validate.mjs             dry run on a saved sample file with the real engine (needs an API key)
 └── LICENSE                          MIT
 ```
 
@@ -69,6 +70,19 @@ Claude Code:
 ```bash
 claude mcp add --transport http extracthub https://api.extracthub.io/mcp --header "Authorization: Bearer YOUR_EXTRACTHUB_API_KEY"
 ```
+
+Claude Code, one key for both the MCP server and `scripts/validate.mjs` (recommended): put the key in
+`.claude/settings.local.json` (keep it out of git) and reference it from the project's `.mcp.json`:
+```json
+// .claude/settings.local.json
+{ "env": { "EXTRACTHUB_API_KEY": "YOUR_EXTRACTHUB_API_KEY" }, "enabledMcpjsonServers": ["extracthub"] }
+```
+```json
+// .mcp.json
+{ "mcpServers": { "extracthub": { "type": "http", "url": "https://api.extracthub.io/mcp",
+  "headers": { "Authorization": "Bearer ${EXTRACTHUB_API_KEY}" } } } }
+```
+Restart Claude Code; `/mcp` should list `extracthub` as connected.
 
 Claude Desktop (`claude_desktop_config.json`, through the `mcp-remote` bridge):
 ```json
@@ -130,6 +144,22 @@ Checks the definition against `schema/extractor-definition.schema.json` plus rul
 (option combinations, selectors the engine cannot run, missing `attributeName`, duplicate names ...). It
 checks structure only; the ExtractHub validator (MCP `validate_extractor_config`, or the Studio preview) is
 the authority.
+
+## The validator script
+
+```bash
+export EXTRACTHUB_API_KEY=exth_...            # test keys work for validation
+node scripts/validate.mjs my-extractor.json --html samples/page.html --url https://site.example/page
+node scripts/validate.mjs my-extractor.json --sample-json samples/response.json --out result.json
+node scripts/validate.mjs --release @user/slug --html samples/page.html        # release dry run (live key)
+```
+
+Runs the ExtractHub validator (MCP `validate_extractor_config`, or `release_extractor` with `--release`) on a
+sample saved to disk, so a page never has to be pasted into a tool call. It prints errors, warnings and a
+per-field summary of the dry run (array lengths, empty sub-fields); `--strict` makes warnings fail, `--json`
+prints the full result. Free; nothing is fetched. It talks to the MCP endpoint directly, so it also works in
+clients where the MCP server is not connected. `--release ... --no-dry-run` releases for real: the agent only
+runs it after you agree.
 
 ## License
 

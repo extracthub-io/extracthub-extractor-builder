@@ -5,6 +5,7 @@ How ExtractHub fetches the page before extraction. These are the top-level keys 
 
 ## Contents
 - Definition keys
+- Sample pages (raw vs rendered)
 - Choosing a fetch mode (decision table)
 - Proxy, country, JS escalation
 - JavaScript rendering
@@ -44,11 +45,53 @@ How ExtractHub fetches the page before extraction. These are the top-level keys 
 Callers of the extract API can override the URL (always) and the POST headers/body (their own request);
 everything else comes from the released version.
 
+## Sample pages (raw vs rendered)
+
+The validator dry-runs your definition on a sample you provide; the sample must be what ExtractHub itself
+will see for the chosen fetch mode. Always save samples to files and pass them with `scripts/validate.mjs`.
+
+| Fetch mode | Sample | How to save it |
+|---|---|---|
+| Plain fetch (`renderJavascript: false`), direct or proxy | Raw server HTML | `curl -sL -A "Mozilla/5.0" "<url>" -o samples/page.html` |
+| JSON API (`sourceType: "json"`) | The response body | `curl -sL "<api url>" -o samples/response.json` (POST: add `-X POST -H ... --data ...` as in the definition) |
+| `renderJavascript: true` | Rendered DOM after the content appeared | Playwright script below, or a browser tool's `document.documentElement.outerHTML` written to a file |
+| `captureXhr: true` | The captured-responses array | Build `[{"url": ..., "status_code": 200, "response_body": "<the JSON as a string>"}]` from the browser's network tab |
+
+Rules:
+- A plain-fetch extractor is validated on the RAW file only. A browser DOM contains elements added by
+  JavaScript: selectors on them pass the dry run and return empty in production.
+- Compare raw and rendered when unsure: data present only in the rendered file means `renderJavascript`;
+  data in both means a plain fetch is enough (check `<script>` JSON blocks in the raw file first).
+- curl from your machine is an approximation: a residential IP may pass where ExtractHub's direct fetcher is
+  blocked, and the reverse. If curl gets a block / captcha page while a browser loads fine, plan for the
+  proxy; the live test on `@draft` is the final word.
+- Never sample from a logged-in or personal browser profile (cookies, account data, personalised prices):
+  ExtractHub fetches anonymously, and the sample may contain private data.
+- Keep samples under 2 MB (the validator limit): save the page only, no assets.
+
+Rendered sample with Playwright (Node; `npm i -D playwright && npx playwright install chromium` once). Wait for
+the same element your `wait_for_element` action waits for:
+
+```js
+// save-rendered.mjs <url> <wait-selector> <out.html>
+import { chromium } from 'playwright';
+import { writeFileSync } from 'node:fs';
+const [url, waitFor, out] = process.argv.slice(2);
+const browser = await chromium.launch();
+const page = await browser.newPage();
+await page.goto(url, { waitUntil: 'domcontentloaded' });
+await page.waitForSelector(waitFor, { timeout: 15000 });
+writeFileSync(out, await page.content());
+await browser.close();
+```
+
+Run the same clicks / scrolls as your `browserActions` before `page.content()` when the extractor uses them.
+
 ## Choosing a fetch mode
 
 | What you see when you fetch the URL yourself | Use |
 |---|---|
-| The data is in the raw HTML (view-source / curl shows it) | `useProxy: true`, no JS. Cheapest |
+| The data is in the raw HTML (view-source / curl shows it) | No JS. `useProxy: false` (direct, cheapest) for open sites, else `useProxy: true` |
 | The data is in a `<script>` JSON block (`__NEXT_DATA__`, `ld+json`, `window.__X__ = {...}`) | `useProxy: true`, no JS, `jsonContent` fields |
 | The URL itself returns JSON (an API) | `sourceType: "json"`; `useProxy: true` if it needs no headers, `useProxy: false` if it needs auth headers (headers are not sent through the proxy) |
 | Raw HTML is an empty shell / skeleton, data appears only in a browser | `renderJavascript: true` (+ `waitForSelector` or `wait_for_element`) |
@@ -58,7 +101,9 @@ everything else comes from the released version.
 | Plain fetch sometimes gets a block / captcha page | `allowJsEscalation: true` |
 
 Default to `useProxy: true`: most sites block or degrade plain datacenter requests. Use `useProxy: false`
-only for open APIs and pages that work without it. Direct requests only reach public http(s) hosts (no
+for open APIs and pages that work without it (demo sites, documentation, government and open-data pages,
+public APIs). When unsure, one live test on `@draft` with `useProxy: false` settles it cheaply: a failed
+direct call is not charged. Direct requests only reach public http(s) hosts (no
 private, internal or ExtractHub addresses, also after a redirect), follow at most 5 redirects and read at most 5 MB.
 
 ## Proxy, country, JS escalation
