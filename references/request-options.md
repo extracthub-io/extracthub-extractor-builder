@@ -5,7 +5,7 @@ How ExtractHub fetches the page before extraction. These are the top-level keys 
 
 ## Contents
 - Definition keys
-- Sample pages (raw vs rendered)
+- Sample pages (raw vs rendered, samples through ExtractHub)
 - Choosing a fetch mode (decision table)
 - Proxy, country, JS escalation
 - JavaScript rendering
@@ -68,6 +68,8 @@ Rules:
 - Never sample from a logged-in or personal browser profile (cookies, account data, personalised prices):
   ExtractHub fetches anonymously, and the sample may contain private data.
 - Keep samples under 2 MB (the validator limit): save the page only, no assets.
+- Big sites vary per request: ExtractHub may use a different scraping provider per call
+  (`metadata.provider`) and the site may serve another layout each time. Validate on several samples.
 
 Rendered sample with Playwright (Node; `npm i -D playwright && npx playwright install chromium` once). Wait for
 the same element your `wait_for_element` action waits for:
@@ -86,6 +88,39 @@ await browser.close();
 ```
 
 Run the same clicks / scrolls as your `browserActions` before `page.content()` when the extractor uses them.
+
+### Samples through ExtractHub
+
+When your own fetch cannot get the page (blocked, captcha, JS wall), or when a live run differs from the dry
+run, let ExtractHub fetch the sample with the exact request options of the extractor (proxy, country, JS,
+browser actions). This is the only sample that matches production exactly. Each fetch is one billed extract
+call at the extractor's tier: tell the user first.
+
+`extract` with `return_raw_html: true` is shortened to ~64 KB in total, usually far less than a real page
+(a 614 KB Google results page came back as 5 KB of HTML). For the full page use a probe extractor and a batch:
+
+1. Create a private probe draft once per site, with the request options you want to test and a field that
+   returns the page markup (`create_extractor`, slug e.g. `<site>-probe`). There is no delete tool in MCP:
+   reuse the probe with `update_extractor` instead of creating new ones, and tell the user they can delete
+   it in the Studio afterwards.
+   ```json
+   { "version": "v1.0", "fields": [
+     { "name": "pageHtml", "selector": "html", "extract": "innerHTML" }
+   ] }
+   ```
+2. `create_batch` with `extractor_id: "@user/<site>-probe@draft"` and the URLs (several fetches of the same
+   page type are fine; layouts and providers vary per request). Poll `get_batch` until `completed`.
+3. Download the results with the REST API (MCP `get_batch_results` shortens large pages too):
+   ```bash
+   curl -s -H "X-API-Key: $EXTRACTHUB_API_KEY" "https://api.extracthub.io/api/extractor/batch/<batch_id>/results" -o samples/batch.ndjson
+   ```
+   The REST API takes `X-API-Key` (a `Bearer` header is rejected with `unauthorized`), and the results are
+   NDJSON: one JSON object per line, `{ url, status, result: { extracted: { pageHtml }, metadata: { provider, ... } } }`.
+4. Save each `pageHtml` as `samples/<name>.html`, wrapped in `<html>...</html>` (innerHTML drops the
+   `<html>` tag itself), and validate on these files with `scripts/validate.mjs`.
+
+The markup is rebuilt by the engine (attributes re-quoted, whitespace collapsed, comments dropped); that is
+the same parse the extractor runs on, so selectors that match there match live.
 
 ## Choosing a fetch mode
 

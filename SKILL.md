@@ -66,12 +66,18 @@ with `scripts/validate.mjs`, so you never paste a page into a tool call. Then de
 5. Data only in background responses → `renderJavascript` + `captureXhr` + `xhrUrlFilter`, `sourceType: "json"`.
 6. Clicks / scrolling / typing needed → `browserActions` (needs `renderJavascript`).
 7. Blocked or captcha HTML → keep `useProxy: true`, add `allowJsEscalation: true` or `proxyCountry`.
+8. Your own fetch is blocked, or only shows a JS wall ("enable JavaScript", a consent page)? That says
+   little about what ExtractHub's proxy gets: scraping providers often receive the full HTML without a
+   browser (Google Search does). Do not jump to `renderJavascript`: get a sample THROUGH ExtractHub with
+   `useProxy: true` and no JS (references/request-options.md, "Samples through ExtractHub"; one `premium`
+   call). Switch to JS only if that sample lacks the data too. Do not work around the block yourself
+   (spoofed User-Agents, "no-JS" variants of the site): the extractor would not fetch that way.
 
 Price tiers (names as `get_account` returns them): `direct` (`useProxy: false`, no JS) < `premium`
 (`useProxy: true`, no JS) < `premium_js` (JS rendering, XHR capture or browser actions, always through the
-proxy). Use the JS tier only when 1-3 fail. If your curl is blocked but a browser shows data, assume the
-extractor needs the proxy (and maybe JS); a browser that loads fine hides that block, which is why the raw
-sample comes from curl.
+proxy). Use the JS tier only when 1-3 fail, also through the proxy (point 8). If your curl is blocked but a
+browser shows data, assume the extractor needs the proxy (and maybe JS); a browser that loads fine hides
+that block, which is why the raw sample comes from curl.
 
 ### 3. Write the definition
 Start from the closest file in [examples/](examples/README.md). Shape:
@@ -135,6 +141,10 @@ A `sample_empty` warning means the field matched nothing on this sample. Fix it,
 genuinely absent on this page (`nextPageUrl` on the last page, `originalPrice` without a sale): then confirm
 it on a second page where it exists. The validator's `next_steps` names the empty fields, but read every
 warning yourself, not only `next_steps`. Validate against a second URL's sample too when you have one.
+Big sites (search engines, marketplaces, social networks) serve different layouts per request, and
+ExtractHub may route calls to different scraping providers (`metadata.provider` in the result): validate
+on samples from several fetches, and when a live run differs from the dry run, get a sample of that
+response before changing selectors.
 
 **Without an API key**: run the bundled structure checker, then check selectors yourself against the saved HTML
 (e.g. search the HTML for each class / attribute; count list items):
