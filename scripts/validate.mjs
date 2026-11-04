@@ -277,7 +277,7 @@ if (tool === 'validate_extractor_config') {
 		for (const line of describe(result.sample.data)) print(line);
 	}
 }
-// The server's next_steps can say "Looks good" while fields are empty on the sample: say it plainly.
+// Fields that matched nothing on the sample: say plainly what to do (next_steps names them too).
 const emptyFields = (result.warnings ?? []).filter((w) => w.code === 'sample_empty');
 if (emptyFields.length > 0) {
 	print(`note: ${emptyFields.length} field(s) matched nothing on this sample. Fix them, unless the value is really absent on this`);

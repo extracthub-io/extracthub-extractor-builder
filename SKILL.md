@@ -133,8 +133,8 @@ Read every error and warning and the dry-run output; fix and repeat until:
 - list lengths equal the number of real items on the page; no wrong first matches.
 A `sample_empty` warning means the field matched nothing on this sample. Fix it, unless the value is
 genuinely absent on this page (`nextPageUrl` on the last page, `originalPrice` without a sale): then confirm
-it on a second page where it exists. Do not rely on the validator's `next_steps` ("Looks good") alone; it
-can say that while fields are empty. Validate against a second URL's sample too when you have one.
+it on a second page where it exists. The validator's `next_steps` names the empty fields, but read every
+warning yourself, not only `next_steps`. Validate against a second URL's sample too when you have one.
 
 **Without an API key**: run the bundled structure checker, then check selectors yourself against the saved HTML
 (e.g. search the HTML for each class / attribute; count list items):
