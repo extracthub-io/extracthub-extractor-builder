@@ -56,8 +56,8 @@ Save the HTML; you will validate against it. Then decide (details: references/re
 6. Clicks / scrolling / typing needed → `browserActions` (needs `renderJavascript`).
 7. Blocked or captcha HTML → keep `useProxy: true`, add `allowJsEscalation: true` or `proxyCountry`.
 
-JS rendering, XHR capture and browser actions use the more expensive JS price tier: use them only when 1-3
-fail. If your fetch is blocked but a browser shows data, assume the extractor needs the proxy (and maybe JS).
+JS rendering, XHR capture and browser actions use the more expensive JS price tier and always go through the
+proxy: use them only when 1-3 fail. A direct fetch (`useProxy: false`, no JS) is the cheapest tier, for open pages and APIs. If your fetch is blocked but a browser shows data, assume the extractor needs the proxy (and maybe JS).
 
 ### 3. Write the definition
 Start from the closest file in [examples/](examples/README.md). Shape:
@@ -124,8 +124,8 @@ selectors; tell the user the definition is unverified until it runs in ExtractHu
    returned extractor id `@user/slug`. Creating, updating and releasing need a LIVE API key: with a test key
    (`exth_test_...`) these tools answer `live_key_required` and only `validate_extractor_config` works.
    A `validation_error` lists the failing paths in `details.errors`; `slug_taken` / `invalid_slug`: pick another.
-2. Tell the user a live test is a billed extract call (standard tier, or JS tier with JS / XHR / browser
-   actions; `get_account` shows prices and balance), then run `extract` with
+2. Tell the user a live test is a billed extract call (direct tier without proxy, standard tier through the proxy, or
+   JS tier with JS / XHR / browser actions; `get_account` shows prices and balance), then run `extract` with
    `extractor_id: "@user/slug@draft"` and the example URL. A test API key only returns simulated data: a live
    key is needed to see real output.
 3. Compare with the dry run. If they differ or fields are empty, see references/troubleshooting.md, fix the
@@ -153,5 +153,5 @@ Deliver:
 
 ## Final answer to the user
 Report: the extractor id and pins (if uploaded), fetch mode and why, the fields with a sample of the real
-output, the price tier (standard or JS), anything unverified or fragile (generated classes, positional
+output, the price tier (direct, standard or JS), anything unverified or fragile (generated classes, positional
 selectors), and the next step (release, or fixes needed).

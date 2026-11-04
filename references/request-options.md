@@ -28,7 +28,7 @@ How ExtractHub fetches the page before extraction. These are the top-level keys 
 | `method` | `GET` \| `POST` | `GET` | |
 | `body` | string | | POST body, sent as-is |
 | `headers` | object of strings | | Custom request headers. Only sent with `useProxy: false`; see "POST requests and headers" |
-| `useProxy` | boolean | `false` | Fetch through ExtractHub's proxy network. Needed by every option below |
+| `useProxy` | boolean | `false` | Fetch through ExtractHub's proxy network. Needed by every option below: JavaScript rendering, XHR capture and browser actions always use the proxy (the save sets `useProxy: true` and warns `proxy_enabled_for_js`) |
 | `renderJavascript` | boolean | `false` | Render in a headless browser |
 | `captureXhr` | boolean | `false` | Return captured background (XHR/fetch) responses as JSON. Needs `renderJavascript` |
 | `xhrUrlFilter` | string | | Comma-separated URL substrings to keep from the captured responses |
@@ -138,11 +138,14 @@ stable and needs no browser cookies, calling it directly (no JS) is cheaper and 
   everyone who can see the extractor.
 
 ## Price tiers
-Every extract call is billed per URL at one of two tiers: on success, and also on a failure after the scraping
+Every extract call is billed per URL at one of three tiers: on success, and also on a failure after the scraping
 provider fetched the page (target error status, block page, extraction / JSON error, provider timeout; the error
-body says `charged: true`). Failures before any provider work are not charged.
-- standard: plain fetch (no JavaScript).
-- JS: `renderJavascript`, `captureXhr` or any `browserActions` (and an escalated `allowJsEscalation` call).
+body says `charged: true`). Failures before any provider work are not charged, and neither are failed direct calls.
+- direct: `useProxy: false`, no JavaScript. Cheapest; ExtractHub fetches the page itself (no provider), so only
+  for open pages and APIs that answer datacenter requests. Never escalates to JS.
+- standard (premium): `useProxy: true`, no JavaScript.
+- JS (premium_js): `renderJavascript`, `captureXhr` or any `browserActions` (and an escalated `allowJsEscalation`
+  call). JavaScript rendering always goes through the proxy, whatever `useProxy` says.
 
 Exact prices are on the ExtractHub pricing page and in the MCP `get_account` / `get_extractor` tools; do not
 quote numbers from memory. Owners may add a per-use price to public extractors. Test API keys are free and
