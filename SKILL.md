@@ -18,6 +18,9 @@ Reference files (read when needed):
 - [references/releasing-and-versions.md](references/releasing-and-versions.md): draft, pins, semver, visibility.
 - [examples/](examples/README.md): six complete definitions (static list, product detail, JSON API, embedded JSON, JS-rendered, POST API).
 
+Multi-step scrapes (a list page, then every detail page it links to, into one dataset) are pipelines: build each
+extractor here, then follow the **extracthub-pipeline-builder** skill to chain them.
+
 ## Workflow
 
 Copy this checklist and keep it updated:

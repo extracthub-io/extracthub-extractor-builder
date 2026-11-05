@@ -11,6 +11,9 @@ Ask your agent things like:
 - "Scrape this job board with ExtractHub: https://... (title, company, location, salary)."
 - "My ExtractHub extractor returns empty prices on this page, fix it."
 
+For multi-step scrapes (a list page, then every detail page it links to) use it together with the
+[extracthub-pipeline-builder](https://github.com/extracthub-io/extracthub-pipeline-builder) skill, which chains released extractors into a pipeline.
+
 ## What is inside
 
 ```
