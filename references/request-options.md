@@ -97,17 +97,23 @@ browser actions). This is the only sample that matches production exactly. Each 
 call at the extractor's tier: tell the user first.
 
 The MCP `extract` tool shortens `return_raw_html` to ~64 KB in total (a 614 KB Google results page came back
-as 5 KB of HTML). The REST endpoint returns the full page, exactly as the engine received it:
+as 5 KB of HTML). Use `raw_html: "link"` instead: the result then has `raw_html_url`, a signed link (valid
+1 hour, no API key needed) to the full page exactly as the engine received it, and `raw_html_bytes`:
 
 1. Save the extractor as a draft first (`create_extractor` / `update_extractor`) with the request options you
    want to test; the fields can be work in progress.
-2. Fetch the page through the draft with the REST API and save the raw HTML to a file:
+2. Call `extract` with `extractor_id: "@user/slug@draft"`, the URL and `raw_html: "link"`, then download the
+   page to a file (no extra charge for the link):
+   ```bash
+   curl -s "<raw_html_url>" -o samples/live-1.html
+   ```
+   No MCP connection? The REST API returns the full page too:
    ```bash
    curl -s -G -H "X-API-Key: $EXTRACTHUB_API_KEY" "https://api.extracthub.io/api/extractor/extract"      --data-urlencode "extractor_id=@user/slug@draft" --data-urlencode "target_url=<url>"      --data-urlencode "return_raw_html=true" --data-urlencode "async_fallback=false" -o samples/live-1.json
    node -e 'const r=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));if(!r.success){console.error(JSON.stringify(r.errors??r.error));process.exit(1)}require("fs").writeFileSync(process.argv[2],r.result.rawHtml??"");console.log("saved",(r.result.rawHtml??"").length,"chars")' samples/live-1.json samples/live-1.html
    ```
-   The REST API takes `X-API-Key` (a `Bearer` header is rejected with `unauthorized`; only the MCP endpoint
-   accepts Bearer). The answer is `{ success, result: { extracted, metadata, rawHtml } }`. With
+   The REST API takes the key as `X-API-Key` or `Authorization: Bearer <key>` (both with different keys:
+   400 `ambiguous_credentials`). The answer is `{ success, result: { extracted, metadata, rawHtml } }`. With
    `async_fallback=false` a busy queue answers 503 `queue_timeout` (retry after `Retry-After`) instead of
    turning the call into an async job.
 3. Validate on the saved file with `scripts/validate.mjs`. For big sites repeat step 2 a few times (results can
@@ -131,6 +137,12 @@ for open APIs and pages that work without it (demo sites, documentation, governm
 public APIs). When unsure, one live test on `@draft` with `useProxy: false` settles it cheaply: a failed
 direct call is not charged. Direct requests only reach public http(s) hosts (no
 private, internal or ExtractHub addresses, also after a redirect), follow at most 5 redirects and read at most 5 MB.
+
+If the site refuses the direct request (HTTP 403, 429 or 503), the error is `target_error` with a `hint`:
+"The site refused the direct request (HTTP 429). Retry with useProxy: true (premium tier)." Switch to
+`useProxy: true`; curl from your own machine succeeding does not mean ExtractHub's direct fetcher gets through.
+A direct `200` that looks like a block, captcha or consent page still succeeds, with
+`metadata.warnings: [{ "code": "direct_fetch_looks_blocked", ... }]`: empty fields are likely, use the proxy.
 
 ## Proxy, country, JS escalation
 - `proxyCountry` must be a two-letter ISO 3166-1 code; empty or null means the default pool. Use it for
@@ -161,13 +173,17 @@ Run in order in the browser, before the HTML is taken. All require `useProxy` + 
 |---|---|---|
 | `wait_for_element` | `selector`, `timeout_s` (int >= 1) | Wait until the content you extract exists. Add this to almost every JS extractor |
 | `wait` | `wait_time_s` (int >= 1) | Fixed pause (last resort) |
-| `click` | `selector`, optional `wait_after_s` (int >= 0) | Cookie banners, "load more", tabs |
+| `click` | `selector`, optional `wait_after_s` (int >= 0) | Cookie banners, "load more", tabs. Recommended: follow it with a separate `wait` |
 | `input` | `selector`, `value` | Type into a field |
 | `scroll` | `x`, `y` (pixels, int) | Scroll by an amount |
 | `scroll_to_bottom` | `timeout_s` (int >= 1) | Infinite scroll / lazy loading |
 
-- `selector`: `{ "type": "css", "value": "#results .card" }`. Types: `css` (preferred), `xpath`, `text`
+- `selector` must be an object: `{ "type": "css", "value": "#results .card" }`. A plain string
+  (`"selector": "#results .card"`) is a validation error. Types: `css` (preferred), `xpath`, `text`
   (visible text). Browser-action CSS runs in a real browser, so any CSS is fine here (unlike extractor fields).
+- Recommended pattern: `click` followed by a separate `{ "type": "wait", "wait_time_s": n }`. A `click` with
+  `wait_after_s` still works: it is normalised automatically into the click plus a `wait` of that many seconds.
+  Seconds and pixels are whole numbers (fractions are rounded up for waits); a `wait` of 0 is dropped.
 - `on_error`: `"error"` (default, the request fails) or `"skip"` (continue). Use `"skip"` for optional steps
   such as a cookie banner that is not always shown.
 - Keep the total of waits and timeouts short (a few seconds to ~15 s); long sequences risk timeouts.
@@ -175,7 +191,8 @@ Run in order in the browser, before the HTML is taken. All require `useProxy` + 
 ```json
 "browserActions": [
   { "type": "wait_for_element", "selector": { "type": "css", "value": "[data-testid=\"product-grid\"] article" }, "timeout_s": 10 },
-  { "type": "click", "selector": { "type": "css", "value": "#onetrust-accept-btn-handler" }, "wait_after_s": 1, "on_error": "skip" },
+  { "type": "click", "selector": { "type": "css", "value": "#onetrust-accept-btn-handler" }, "on_error": "skip" },
+  { "type": "wait", "wait_time_s": 1, "on_error": "skip" },
   { "type": "scroll_to_bottom", "timeout_s": 5, "on_error": "skip" }
 ]
 ```

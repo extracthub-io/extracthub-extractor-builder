@@ -108,6 +108,8 @@
         "name": { "$ref": "#/$defs/fieldName" },
         "selector": { "$ref": "#/$defs/selector" },
         "isArray": { "type": "boolean" },
+        "required": { "type": "boolean", "description": "Top-level: a fetched page without a value fails the request (still charged). In a subExtractor: list items without it are dropped" },
+        "includePosition": { "type": "boolean", "description": "List of objects: adds a 1-based position to each item, numbered after dropped items" },
         "extract": { "$ref": "#/$defs/extractType" },
         "attributeName": { "type": "string", "minLength": 1 },
         "attributeNames": { "type": "array", "minItems": 1, "items": { "type": "string" } },
@@ -151,6 +153,7 @@
       "properties": {
         "name": { "$ref": "#/$defs/fieldName" },
         "selector": { "$ref": "#/$defs/selector" },
+        "required": { "type": "boolean", "description": "List items (objects) without a value are dropped (a single object becomes null)" },
         "extract": { "$ref": "#/$defs/extractType" },
         "attributeName": { "type": "string", "minLength": 1 },
         "attributeNames": { "type": "array", "minItems": 1, "items": { "type": "string" } },
@@ -179,6 +182,8 @@
         "name": { "$ref": "#/$defs/fieldName" },
         "jsonPath": { "type": "string", "minLength": 1 },
         "transforms": { "$ref": "#/$defs/transforms" },
+        "required": { "type": "boolean", "description": "Top-level: a fetched page without a value fails the request (still charged). In a subExtractor: list items without it are dropped" },
+        "includePosition": { "type": "boolean", "description": "List of objects: adds a 1-based position to each item, numbered after dropped items" },
         "subFields": {
           "type": "array",
           "minItems": 1,
@@ -189,7 +194,8 @@
             "properties": {
               "name": { "$ref": "#/$defs/fieldName" },
               "jsonPath": { "type": "string", "minLength": 1 },
-              "transforms": { "$ref": "#/$defs/transforms" }
+              "transforms": { "$ref": "#/$defs/transforms" },
+              "required": { "type": "boolean", "description": "List items (objects) without a value are dropped (a single object becomes null)" }
             }
           }
         },

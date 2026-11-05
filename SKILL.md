@@ -75,6 +75,13 @@ with `scripts/validate.mjs`, so you never paste a page into a tool call. Then de
    `useProxy: true` and no JS (references/request-options.md, "Samples through ExtractHub"; one `premium`
    call). Switch to JS only if that sample lacks the data too. Do not work around the block yourself
    (spoofed User-Agents, "no-JS" variants of the site): the extractor would not fetch that way.
+9. Data that only loads after a click (a transcript, "show more" reviews)? Check that request in a local
+   browser first (DevTools Network). If it answers 4xx to an automated browser (the YouTube transcript
+   request returns 400), the site protects it: stop there and tell the user, before spending JS-tier
+   calls on `browserActions`.
+10. Big sites may give automated traffic other links than a browser sees, e.g. opaque redirect links
+   (Google `/goto?url=<token>`) instead of the target URL. Check a live sample through ExtractHub before
+   promising the real URL in a field.
 
 Price tiers (names as `get_account` returns them): `direct` (`useProxy: false`, no JS) < `premium`
 (`useProxy: true`, no JS) < `premium_js` (JS rendering, XHR capture or browser actions, always through the
@@ -117,6 +124,14 @@ Rules that matter most:
 - Names: camelCase, one per value, stable (renaming later is a breaking version). If the user names the
   fields themselves (`author_url`), use their names: camelCase is the default, not a rule over the user
   (the local checker then warns; the server accepts any name).
+- Pick the most faithful source: the same value often exists twice (a video description in the player JSON
+  vs the rendered, truncated one). Prefer the structured source that holds the full value.
+- Sites that may answer a bot check, consent wall or partial page with HTTP 200 (YouTube
+  `playabilityStatus`, consent walls): mark the core fields `required: true` and add a status field from the
+  source that is always present (e.g. `playabilityStatus.status`). A required field without a value fails the
+  request (`required_fields_missing`), still charged because the page was fetched; batch and pipelines retry it
+  once. In list items, `required` on a sub-field drops incomplete items instead, and `includePosition: true`
+  numbers the rest (references/config-reference.md, "Required fields and list positions").
 - Never put secrets (cookies, tokens) in headers or body; public and unlisted definitions are visible.
 - Custom `headers` (the `Cookie` header included) are not sent when the request goes through the scraping
   proxy (`useProxy: true`); they are only sent on direct requests (`useProxy: false`). Scraping providers manage
@@ -145,9 +160,9 @@ genuinely absent on this page (`nextPageUrl` on the last page, `originalPrice` w
 it on a second page where it exists. The validator's `next_steps` names the empty fields, but read every
 warning yourself, not only `next_steps`. Validate against a second URL's sample too when you have one.
 Big sites (search engines, marketplaces, social networks) serve different layouts per request (A/B
-layouts), and results can differ per call because ExtractHub may use different fetch routes: validate
-on samples from several fetches, and when a live run differs from the dry run, get a sample of that
-response before changing selectors.
+layouts), so results can differ per call. Sample 3-5 live fetches (a small batch of the same URL, or a few
+`extract` calls on `@draft`), compare their layouts and validate on each; when a live run differs from the
+dry run, get a sample of that response before changing selectors.
 
 **Without an API key**: run the bundled structure checker, then check selectors yourself against the saved HTML
 (e.g. search the HTML for each class / attribute; count list items):
@@ -173,12 +188,18 @@ selectors; tell the user the definition is unverified until it runs in ExtractHu
    key is needed to see real output.
 3. Compare with the dry run. If they differ or fields are empty, see references/troubleshooting.md, fix the
    definition, `update_extractor`, and test again. Stop after a few rounds and report what still fails.
+   Need the page the live run saw? `extract` with `raw_html: "link"` returns `raw_html_url` (full HTML, 1 h),
+   never a separate probe extractor.
+4. Drafts you created only to probe or that you gave up on: `delete_extractor` (dry run first, then
+   `confirm: true`). It only deletes private drafts that were never released; tell the user what you deleted.
 
 ### 6. Release (only when the user agrees)
 `release_extractor` creates an immutable version (first one `1.0.0`; later bumps follow the output-schema
 change). Like the Studio, it checks the draft on a sample page first: pass your sample file through the
 script, or `fetch_sample: true` to let ExtractHub fetch the example URL once (one billed extract; tell the
-user). Run the dry run first and show the user the planned version and schema diff:
+user), or `sample_from_job_id` / `sample_from_batch_item` to reuse the stored result of one of your own
+runs of the draft (free; a job that stored the page re-runs the full check, otherwise the stored extraction
+must come from the current draft config). Run the dry run first and show the user the planned version and schema diff:
 ```bash
 node scripts/validate.mjs --release @user/slug --html samples/page-1.html
 ```
@@ -187,6 +208,8 @@ or the MCP tool `release_extractor` without `dry_run`. Optional: `bump` (may rai
 `changelog` (`changelog_required` when a version needs one). `nothing_to_release` means the draft equals the
 latest version; `release_check_failed` lists what blocks it (fix with `update_extractor`). Explain: consumers should call `@user/slug@1` (latest 1.x, gets fixes, never breaking changes) or an
 exact `@user/slug@1.0.0`; `@draft` is owner-only. Ask before switching visibility to `unlisted` or `public` (public only after a release, else `release_required`).
+After a release, `set_sample_output` replaces a version's sample (shown on its page and returned to test
+keys) with a real result of exactly that version (a job / batch item run with `@user/slug@1.0.0` or `@1`).
 Details: references/releasing-and-versions.md.
 
 ### Without the MCP server

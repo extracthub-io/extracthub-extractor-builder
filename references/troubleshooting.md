@@ -66,6 +66,8 @@ Signs: "Access denied", "Just a moment...", captcha markup, a tiny HTML, a 403/4
 - Or switch to `renderJavascript: true` (+ `wait_for_element`).
 - Try a `proxyCountry` matching the site's market.
 - Prefer the site's JSON endpoints or embedded JSON: often less protected than the HTML.
+- A block page answered with HTTP 200 looks like a success with empty fields. Mark the core fields
+  `required: true` so it fails visibly (`required_fields_missing`, still charged; config-reference.md).
 
 ## JavaScript-only content
 Signs: raw HTML has an empty root (`<div id="root"></div>`, `<div id="__next"></div>` without content),
@@ -94,6 +96,7 @@ skeleton placeholders, "Loading...".
 | `version_yanked` (410) | That exact version was withdrawn | Use `@N` or another version |
 | `upstream_error` (502) / `upstream_timeout` (504) | Fetching failed / timed out | Retry; reduce browser action waits; try without JS |
 | `target_error` (502) | The target page answered non-200 (blocked, 404) | Check the URL; see "Blocked" above |
+| `required_fields_missing` (422) | A `required` field was empty on the fetched page (bot check, consent wall, other layout); charged | Retry later; sample the failing response and compare layouts |
 | `queue_timeout` (503) / 202 job | Busy; the request became an async job | Poll the job (`get_job`) |
 | 402 | Not enough credit | Top up |
 | 403 on `@draft` | Only the owner can run the draft | Use your own extractor / a released pin |

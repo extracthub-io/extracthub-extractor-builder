@@ -53,10 +53,25 @@ the `X-Extractor-Version` header (and `Deprecation` / `Sunset` for a deprecated 
   choose a HIGHER bump (e.g. 2.0.0 to signal a behavior change), never a lower one. The first release is `1.0.0`.
 - After releasing, give the user the pins to use: `@user/slug@1` for most consumers, exact `@1.0.0` for
   reproducibility.
+- Sample from a run you already paid for: `sample_from_job_id` (an async job) or `sample_from_batch_item`
+  (`{ batch_id, index }`) instead of a sample page. If that run stored the page (a job from `extract` with
+  `return_raw_html` / `raw_html`), the full release check runs on it; otherwise only the stored extraction is
+  checked and it must come from the current draft config (`sample_stale` otherwise; batches never store pages).
+- `set_sample_output` (live key, owner) replaces the sample output of a released version (default: the latest)
+  with the result of a job / batch item that ran exactly that version. It must fit the version's output schema
+  (`schema_mismatch` lists the paths) and contain data; nothing else of the version changes.
+
+## Deleting drafts
+- `delete_extractor` deletes one of your private extractors that was never released (yanked versions count as
+  released): failed attempts and probe drafts. Without `confirm: true` it is a dry run. Refused: `has_releases`
+  (deprecate / yank instead; only the owner can delete a released extractor, in the Studio), `not_private`,
+  `in_use_by_pipeline` (lists the pipelines), `in_use_by_batch` (a batch / job still running with it).
 
 ## Semver: what counts as breaking
 - patch: output schema identical (selector fixes, request option changes, transforms that keep the type).
-- minor: additive only: a new field, a field whose type was unknown becomes known.
+- minor: additive only: a new field, a field whose type was unknown becomes known. (`jsonContent` / window state / JSON
+  source kinds are inferred from the release sample, so a field that was null on the previous sample and has a
+  value now is a minor change.)
 - major: a field removed or renamed, a type change (string ↔ number), scalar ↔ array, nested structure
   changed.
 

@@ -6,6 +6,7 @@ ExtractHub engine runs; nothing else is accepted.
 ## Contents
 - Top level
 - HTML fields: the five shapes
+- Required fields and list positions
 - Extract types
 - Selector arrays and combineStrategy (fallbacks)
 - Text options
@@ -82,6 +83,35 @@ Rules:
 Output: `"address": { "city": "...", "zip": "..." }`; the original keys disappear. `"merge"` concatenates
 array fields into one array instead.
 
+## Required fields and list positions
+
+`required: true` (any field, any extract type, HTML and JSON) means two different things by level:
+
+- **Top-level field: the request fails without it.** When the value is empty after extraction (`null`, `""`,
+  `[]`; `0` and `false` are values), the request fails with `required_fields_missing` (HTTP 422, the error lists
+  the missing fields and a hint). The page was fetched, so it is **still charged** like any failure after a
+  fetch (a failed direct call, `useProxy: false`, stays free). Batch items and pipeline steps retry it once.
+  Use it to catch bot checks, consent walls and partial pages that answer HTTP 200. A grouped field (`group`)
+  is checked inside its group (`nest`) or as the merged list (`merge`).
+- **Sub-field (`subExtractor.fields[]` or `subFields[]`): incomplete items are dropped.** A list item (object)
+  without the value is removed from the list; a single object becomes `null`. Never a request failure by itself:
+  mark the parent field `required` too if an empty list should fail.
+
+```json
+{ "name": "products", "selector": "li.product-card", "isArray": true, "extract": "innerHTML", "includePosition": true,
+  "subExtractor": { "fields": [
+    { "name": "name", "selector": "h3", "required": true },
+    { "name": "price", "selector": ".price", "transforms": ["extractPrice"] }
+  ] } }
+```
+Output: `"products": [{ "position": 1, "name": "...", "price": 9.5 }, ...]`.
+
+`includePosition: true` on a list of objects (HTML `isArray` with `subExtractor` or `subFields`; JSON a `[*]` path
+with `subFields` / `subExtractor`) adds `position` (1-based) as the first key of each item. Positions are numbered
+AFTER incomplete items were dropped, so they are always 1..n of the returned items (the item's rank on the page
+when nothing was dropped). A sub-field already named `position` is rejected; a list of plain values (no objects)
+cannot take a position.
+
 ## Extract types
 
 | extract | Returns | Extra keys |
@@ -118,10 +148,16 @@ Notes:
 
 | combineStrategy | Result |
 |---|---|
-| `first` | The first selector (in array order) that matches, its first match. A fallback chain. |
-| `last` | The last match of the first selector that matches. |
-| `concat` | All matches of the first selector that matches, joined with `concatSeparator` (default space). |
-| `array` | All non-empty matches of the first selector that matches, as an array. |
+| `first` | The first selector (in array order) that has a value, its first non-empty value. A fallback chain. |
+| `last` | The last non-empty value of the first selector that has a value. |
+| `concat` | The non-empty values of the first selector that has a value, joined with `concatSeparator` (default space). |
+| `array` | The non-empty values of the first selector that has a value, as an array. |
+
+"Has a value" is judged on the extracted value, not on the element: a selector whose element exists but gives
+nothing (empty text, a missing attribute, `jsonContent` paths that resolve to null) falls through to the next
+selector. Empty = `null`, `""` or `[]`; `0` and `false` are values. For `jsonContent` with several `jsonPaths`
+the object is empty when every path is empty. A comma string (`"h1, h2"`) is ONE selector (document order),
+not a fallback list.
 
 ```json
 { "name": "price", "selector": [".price--sale", ".price"], "combineStrategy": "first", "transforms": ["extractPrice"] }
@@ -165,6 +201,27 @@ with unquoted keys or functions). Next.js App Router payloads (`self.__next_f.pu
 { "name": "productId", "selector": "script#__window__INITIAL_STATE", "extract": "jsonContent", "jsonPaths": ["product.id"] }
 ```
 
+A `var NAME = {...};` (or `window.NAME = {...};`) followed by more JavaScript in the same script works too: only
+the JSON literal after `=` is read. YouTube-style pages ship `var ytInitialData = {...};` and
+`var ytInitialPlayerResponse = {...};`, exposed as `script#__window__ytInitialData` and
+`script#__window__ytInitialPlayerResponse`.
+
+### Positions that move
+Data often sits at different paths (page variants, A/B tests) or in different scripts. Two official patterns:
+
+1. Several `jsonPaths` + `coalesce`: the first path that has a value wins (same script).
+```json
+{ "name": "title", "selector": "script#__window__ytInitialPlayerResponse", "extract": "jsonContent",
+  "jsonPaths": ["videoDetails.title", "microformat.playerMicroformatRenderer.title.simpleText"], "transforms": ["coalesce"] }
+```
+2. A selector array with `combineStrategy: "first"` across two JSON sources: when the first script exists but its
+   paths give null, the next script is tried (see "Selector arrays and combineStrategy").
+```json
+{ "name": "viewCount", "selector": ["script#__window__ytInitialPlayerResponse", "script#__window__ytInitialData"],
+  "combineStrategy": "first", "extract": "jsonContent", "jsonPaths": ["videoDetails.viewCount"], "transforms": ["toNumber"] }
+```
+Both can be combined (several paths + coalesce inside each source, then the selector fallback).
+
 ## JSON source (sourceType "json")
 
 Use when the response itself is JSON (an API endpoint) or with captured XHR (below).
@@ -193,6 +250,8 @@ Use when the response itself is JSON (an API endpoint) or with captured XHR (bel
   string value is parsed as JSON first, which is how stringified JSON inside JSON is read. Field-level
   `transforms` run BEFORE `subExtractor`; put transforms on the sub-fields.
 - A missing path gives `undefined`, which is omitted when the result is serialized (the key disappears).
+- `required` (fields and sub-fields) and `includePosition` (a `[*]` list of objects) work as in HTML: see
+  "Required fields and list positions".
 
 ## Captured XHR responses
 
@@ -282,6 +341,14 @@ Empty values:
 When an extractor is released, ExtractHub derives an output schema from the config: number transforms
 (`toNumber`, `toInteger`, `extractNumber`, `extractPrice`, `extractNumberDotThousands`,
 `extractNumberCommaThousands`, `parseCompactNumber`, `count`) make a number, `toBoolean` / `exists` a boolean,
-`split*` an array, `isArray` / `[*]` an array, `subExtractor` / `subFields` an object. Renaming or removing a
+`split*` an array, `isArray` / `[*]` an array, `subExtractor` / `subFields` an object. Values whose type the config
+does not fix (`jsonContent`, window state, JSON sources) get their kind from the release sample (string, number,
+boolean, nested objects / arrays); a value that is null on the sample stays `unknown`, and a later release whose
+sample has no value keeps the previous version's kind while the field config is unchanged. Renaming or removing a
 field, or changing its type or array-ness, is a breaking change (new major version). So pick names and types
 deliberately the first time: see releasing-and-versions.md.
+
+`required` is part of the schema: making a field required is a minor change (the output only narrows: it never
+comes back empty), making a required field optional again is a breaking change (major). Adding
+`includePosition` adds a `position` number (minor); removing it is breaking. The release sample must have a value
+for every required field, else releasing is refused.
