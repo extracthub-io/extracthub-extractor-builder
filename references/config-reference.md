@@ -276,11 +276,13 @@ Order of captured responses can vary; keep the filter specific enough that index
 
 ## Transforms (complete list)
 
-`transforms` is an array of exact names applied left to right; every transform runs exactly once.
+`transforms` is an array applied left to right; every transform runs exactly once. An entry is an exact name
+(`"trim"`) or, for the transforms with options, an object with exactly one key, the transform name
+(`{ "split": "·" }`, see "Transforms with options" below).
 How they run on HTML fields:
 - On a field with `selector` (and on each sub-field), the chain runs once on the value.
 - On an `isArray` field with `selector`, value transforms (`trim`, `extractPrice`, `reverse`, `toJson` ...)
-  run on each element; from the first array transform on (`first`, `last`, `unique`, `compact`,
+  run on each element; from the first array transform on (`first`, `last`, `nth`, `unique`, `compact`,
   `joinWithComma`, `joinWithSpace`, `coalesce`) the rest of the chain runs once on the whole array. Example:
   `["extractPrice", "compact", "first"]` → the first price as a number.
 - On a field with `subFields`, the field's own `transforms` run once on the resulting object (or array of
@@ -319,6 +321,8 @@ Numbers:
 - `toNumber`: parseFloat after removing commas (`"19.99"` → 19.99); null when not a number.
 - `toInteger`: parseInt after removing commas.
 - `extractDigits`: keep digits only, as a string (`"(555) 010-0100"` → `"5550100100"`).
+- `extractPhone`: the first phone-like number in a text, as written (optional `+`, digits with space `.` `-` `( )`,
+  7-15 digits): `"Open 24 hours · (303) 758-6237"` → `"(303) 758-6237"`; null when there is none. A string.
 - `removeLeadingZeros`: `"0042"` → `"42"`.
 
 Other types:
@@ -336,12 +340,53 @@ Arrays:
 Empty values:
 - `nullIfEmpty`: `""` → null. `emptyIfNull`: null → `""`.
 
+### Transforms with options
+
+Written as an object with one key, the transform name, holding its options: the shorthand (main option only) or
+the full form. Matching is plain text and case-sensitive. Regex transforms are not available (yet): use these.
+Text input only: `null` stays `null`, numbers and other non-strings pass through unchanged (`nth` takes an array).
+
+| Transform | Shorthand / full form | Result | No match |
+|---|---|---|---|
+| `split` | `{ "split": "·" }` / `{ "split": { "separator": "·", "limit": 3 } }` | trimmed parts, empty parts dropped, at most `limit` (max 10000) | `[value]` (`[]` when empty) |
+| `after` | `{ "after": "pv-" }` / `{ "after": { "text": "/", "last": true } }` | text after the first (or last) occurrence | `null` |
+| `before` | `{ "before": "?" }` / `{ "before": { "text": "/", "last": true } }` | text before the first (or last) occurrence | `null` |
+| `between` | `{ "between": ["!3d", "!"] }` / `{ "between": { "start": "!3d", "end": "!" } }` | after the first `start`, up to the next `end` | no `start`: `null`; no `end`: rest of the text |
+| `nth` | `{ "nth": 2 }` / `{ "nth": { "index": -1 } }` | array element, 1-based, negative from the end (`-1` = last) | out of range: `null` |
+| `removeQueryParams` | `{ "removeQueryParams": ["utm_*", "fbclid"] }` / `{ "removeQueryParams": { "names": [...] } }` | the URL without those query parameters (`*` at the end = prefix), relative URLs stay relative, `#fragment` kept, `?` dropped when empty | not a URL: unchanged |
+
+Limits: option texts 1-200 characters, `limit` 1-10000, 1-50 `names`, `index` a non-zero integer, at most 20 object
+entries per field. A bad entry is an error (`unknown_transform`, or `invalid_transform_options` with what is wrong),
+with its path, e.g. `extractorConfig.fields[2].transforms[1]`. `nth` is an array transform: on an `isArray` field,
+`["trim", { "nth": 2 }]` trims each element, then picks the second.
+
+Examples (Google Maps place link `.../data=!3d39.7259254!4d-105.018292!...!19sChIJXQdb...?authuser=0`, Google local
+results with `·`-separated text lines):
+
+```json
+{ "name": "latitude", "selector": "a.hfpxzc", "extract": "attributeValue", "attributeName": "href",
+  "transforms": [{ "between": ["!3d", "!"] }, "toNumber"] },
+{ "name": "longitude", "selector": "a.hfpxzc", "extract": "attributeValue", "attributeName": "href",
+  "transforms": [{ "between": ["!4d", "!"] }, "toNumber"] },
+{ "name": "placeId", "selector": "a.hfpxzc", "extract": "attributeValue", "attributeName": "href",
+  "transforms": [{ "between": ["!19s", "?"] }] },
+{ "name": "category", "selector": "div.rllt__details > div:nth-child(2)",
+  "transforms": ["normalizeWhitespace", { "split": "·" }, "last"] },
+{ "name": "rating", "selector": "div.rllt__details > div:nth-child(2)",
+  "transforms": [{ "split": "·" }, { "nth": 1 }, "extractNumber"] },
+{ "name": "phone", "selector": "div.rllt__details > div:nth-child(4)", "transforms": ["extractPhone"] },
+{ "name": "localId", "selector": "[id^=\"pv-\"]", "extract": "attributeValue", "attributeName": "id",
+  "transforms": [{ "after": "pv-" }] },
+{ "name": "website", "selector": "a[data-value=\"Website\"]", "extract": "attributeValue", "attributeName": "href",
+  "transforms": [{ "removeQueryParams": ["utm_*"] }] }
+```
+
 ## Output types and versions
 
 When an extractor is released, ExtractHub derives an output schema from the config: number transforms
 (`toNumber`, `toInteger`, `extractNumber`, `extractPrice`, `extractNumberDotThousands`,
 `extractNumberCommaThousands`, `parseCompactNumber`, `count`) make a number, `toBoolean` / `exists` a boolean,
-`split*` an array, `isArray` / `[*]` an array, `subExtractor` / `subFields` an object. Values whose type the config
+`split*` / `split` an array (`first` / `last` / `nth` after it: one element), `isArray` / `[*]` an array, `subExtractor` / `subFields` an object. Values whose type the config
 does not fix (`jsonContent`, window state, JSON sources) get their kind from the release sample (string, number,
 boolean, nested objects / arrays); a value that is null on the sample stays `unknown`, and a later release whose
 sample has no value keeps the previous version's kind while the field config is unchanged. Renaming or removing a

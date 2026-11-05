@@ -35,6 +35,7 @@ export function validateSchema(schema, data, root = schema, path = '$') {
 	}
 	if (typeof data === 'number') {
 		if (schema.minimum !== undefined && data < schema.minimum) errors.push({ path, message: `must be >= ${schema.minimum}` });
+		if (schema.maximum !== undefined && data > schema.maximum) errors.push({ path, message: `must be <= ${schema.maximum}` });
 	}
 	if (Array.isArray(data)) {
 		if (schema.minItems !== undefined && data.length < schema.minItems) errors.push({ path, message: `must have at least ${schema.minItems} item(s)` });
@@ -42,6 +43,9 @@ export function validateSchema(schema, data, root = schema, path = '$') {
 		if (schema.items) data.forEach((item, i) => check(schema.items, item, `${path}[${i}]`));
 	}
 	if (isObject(data)) {
+		const count = Object.keys(data).length;
+		if (schema.minProperties !== undefined && count < schema.minProperties) errors.push({ path, message: `must have at least ${schema.minProperties} key(s)` });
+		if (schema.maxProperties !== undefined && count > schema.maxProperties) errors.push({ path, message: `must have at most ${schema.maxProperties} key(s)` });
 		for (const key of schema.required ?? []) {
 			if (!(key in data)) errors.push({ path, message: `is missing required property "${key}"` });
 		}
@@ -133,6 +137,94 @@ export function unsupportedSelectorReason(selector) {
 
 const CAMEL = /^[a-z][A-Za-z0-9]*$/;
 
+// ---------------------------------------------------------------------------
+// Transforms with options ({ "split": "·" }); same rules as the ExtractHub validator
+// ---------------------------------------------------------------------------
+
+/** Transforms written as one-key objects with options. Every other transform is a plain name (schema $defs.transformName). */
+export const TRANSFORMS_WITH_OPTIONS = ['split', 'after', 'before', 'between', 'nth', 'removeQueryParams'];
+const MAX_OBJECT_TRANSFORMS = 20;
+
+const optionText = (v) => typeof v === 'string' && v.length >= 1 && v.length <= 200;
+const isIndex = (v) => Number.isInteger(v) && v !== 0;
+const isNames = (v) => Array.isArray(v) && v.length >= 1 && v.length <= 50 && v.every(optionText) && v.every((n) => !n.slice(0, -1).includes('*'));
+const onlyKeys = (o, allowed) => Object.keys(o).every((k) => allowed.includes(k));
+
+const TEXT_POSITION = {
+	expects: 'a text (1-200 characters) or { "text": string, "last"?: boolean }',
+	ok: (v) => optionText(v) || (isObject(v) && onlyKeys(v, ['text', 'last']) && optionText(v.text) && (v.last === undefined || typeof v.last === 'boolean')),
+};
+const TRANSFORM_OPTIONS = {
+	split: {
+		expects: 'a separator string (1-200 characters) or { "separator": string, "limit"?: 1-10000 }',
+		ok: (v) =>
+			optionText(v) ||
+			(isObject(v) && onlyKeys(v, ['separator', 'limit']) && optionText(v.separator) && (v.limit === undefined || (Number.isInteger(v.limit) && v.limit >= 1 && v.limit <= 10000))),
+	},
+	after: TEXT_POSITION,
+	before: TEXT_POSITION,
+	between: {
+		expects: '["start", "end"] (two texts of 1-200 characters) or { "start": string, "end": string }',
+		ok: (v) => (Array.isArray(v) && v.length === 2 && v.every(optionText)) || (isObject(v) && onlyKeys(v, ['start', 'end']) && optionText(v.start) && optionText(v.end)),
+	},
+	nth: {
+		expects: 'a non-zero integer (1 = first, -1 = last) or { "index": integer }',
+		ok: (v) => isIndex(v) || (isObject(v) && onlyKeys(v, ['index']) && isIndex(v.index)),
+	},
+	removeQueryParams: {
+		expects: 'a list of 1-50 parameter names ("utm_*" = prefix wildcard) or { "names": [...] }',
+		ok: (v) => isNames(v) || (isObject(v) && onlyKeys(v, ['names']) && isNames(v.names)),
+	},
+};
+
+/** Checks one transforms list; messages start with the validator's code (unknown_transform / invalid_transform_options). Returns the bad paths. */
+function checkTransforms(transforms, path, plainNames, err) {
+	if (!Array.isArray(transforms)) return [];
+	const bad = [];
+	const fail = (p, code, message) => {
+		bad.push(p);
+		err(p, `${code}: ${message}`);
+	};
+	transforms.forEach((entry, i) => {
+		const p = `${path}[${i}]`;
+		if (typeof entry === 'string') {
+			if (TRANSFORMS_WITH_OPTIONS.includes(entry)) fail(p, 'invalid_transform_options', `"${entry}" needs options, written as an object: { "${entry}": ... }`);
+			else if (!plainNames.has(entry)) fail(p, 'unknown_transform', `Unknown transform "${entry}"`);
+			return;
+		}
+		if (!isObject(entry)) {
+			fail(p, 'unknown_transform', 'A transform is a name ("trim") or an object with one key, the transform name ({ "split": "·" })');
+			return;
+		}
+		const keys = Object.keys(entry);
+		if (keys.length !== 1) {
+			fail(p, 'invalid_transform_options', 'A transform object needs exactly one key, the transform name; use one object per transform');
+			return;
+		}
+		const name = keys[0];
+		if (!TRANSFORMS_WITH_OPTIONS.includes(name)) {
+			fail(p, 'unknown_transform', plainNames.has(name) ? `"${name}" takes no options: write it as the plain name "${name}"` : `Unknown transform "${name}"`);
+			return;
+		}
+		if (!TRANSFORM_OPTIONS[name].ok(entry[name])) fail(p, 'invalid_transform_options', `"${name}" expects ${TRANSFORM_OPTIONS[name].expects}`);
+	});
+	const objects = transforms.filter((t) => t !== null && typeof t === 'object').length;
+	if (objects > MAX_OBJECT_TRANSFORMS) fail(path, 'invalid_transform_options', `At most ${MAX_OBJECT_TRANSFORMS} transforms with options per field (got ${objects})`);
+	return bad;
+}
+
+/** Every `transforms` list of the config (fields, sub-fields, subExtractor fields; HTML and JSON) */
+function eachTransformsList(fields, path, visit) {
+	if (!Array.isArray(fields)) return;
+	fields.forEach((f, i) => {
+		if (!isObject(f)) return;
+		const p = `${path}[${i}]`;
+		if (f.transforms !== undefined) visit(f.transforms, `${p}.transforms`);
+		eachTransformsList(f.subFields, `${p}.subFields`, visit);
+		if (isObject(f.subExtractor)) eachTransformsList(f.subExtractor.fields, `${p}.subExtractor.fields`, visit);
+	});
+}
+
 /**
  * Full check: JSON Schema + semantic rules.
  * Returns { errors, warnings, notes }, each [{ path, message }]. Notes are informational (price tier).
@@ -192,6 +284,20 @@ export function checkDefinition(def, schema) {
 
 	if (isJson) checkJsonFields(config.fields, '$.extractorConfig.fields', err, warn);
 	else checkHtmlFields(config.fields, '$.extractorConfig.fields', err, warn, false);
+
+	// Transforms: the coded messages replace the generic schema errors of the same entries
+	const plainNames = new Set(schema?.$defs?.transformName?.enum ?? []);
+	const badPaths = [];
+	const transformErrors = [];
+	eachTransformsList(config.fields, '$.extractorConfig.fields', (list, path) => {
+		badPaths.push(...checkTransforms(list, path, plainNames, (p, message) => transformErrors.push({ path: p, message })));
+	});
+	if (badPaths.length > 0) {
+		const covered = (p) => badPaths.some((bad) => p === bad || p.startsWith(`${bad}.`) || p.startsWith(`${bad}[`));
+		const kept = errors.filter((e) => !covered(e.path));
+		errors.length = 0;
+		errors.push(...kept, ...transformErrors);
+	}
 
 	return { errors, warnings, notes };
 }

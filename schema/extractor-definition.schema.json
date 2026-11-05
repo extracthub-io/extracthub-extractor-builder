@@ -55,10 +55,70 @@
         "parseCompactNumber", "toBoolean", "parseJson", "toJson",
         "splitByComma", "splitByPipe", "splitByNewline", "joinWithComma", "joinWithSpace", "first", "last", "unique", "compact",
         "nullIfEmpty", "emptyIfNull", "removeCommonJunk", "extractDigits", "extractLetters", "extractAlphanumeric",
-        "removeLeadingZeros", "reverse", "coalesce", "toMarkdown"
+        "removeLeadingZeros", "reverse", "coalesce", "toMarkdown", "extractPhone"
       ]
     },
-    "transforms": { "type": "array", "items": { "$ref": "#/$defs/transformName" } },
+    "transformText": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "transformTextPosition": {
+      "anyOf": [
+        { "$ref": "#/$defs/transformText" },
+        {
+          "type": "object",
+          "required": ["text"],
+          "properties": { "text": { "$ref": "#/$defs/transformText" }, "last": { "type": "boolean" } },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "transformQueryParamNames": { "type": "array", "minItems": 1, "maxItems": 50, "items": { "$ref": "#/$defs/transformText" } },
+    "transformIndex": { "type": "integer", "description": "1-based, negative from the end (-1 = last), never 0" },
+    "parameterisedTransform": {
+      "type": "object",
+      "description": "A transform with options: an object with exactly one key, the transform name. Plain-text matching, no regex.",
+      "minProperties": 1,
+      "maxProperties": 1,
+      "properties": {
+        "split": {
+          "anyOf": [
+            { "$ref": "#/$defs/transformText" },
+            {
+              "type": "object",
+              "required": ["separator"],
+              "properties": { "separator": { "$ref": "#/$defs/transformText" }, "limit": { "type": "integer", "minimum": 1, "maximum": 10000 } },
+              "additionalProperties": false
+            }
+          ]
+        },
+        "after": { "$ref": "#/$defs/transformTextPosition" },
+        "before": { "$ref": "#/$defs/transformTextPosition" },
+        "between": {
+          "anyOf": [
+            { "type": "array", "minItems": 2, "maxItems": 2, "items": { "$ref": "#/$defs/transformText" } },
+            {
+              "type": "object",
+              "required": ["start", "end"],
+              "properties": { "start": { "$ref": "#/$defs/transformText" }, "end": { "$ref": "#/$defs/transformText" } },
+              "additionalProperties": false
+            }
+          ]
+        },
+        "nth": {
+          "anyOf": [
+            { "$ref": "#/$defs/transformIndex" },
+            { "type": "object", "required": ["index"], "properties": { "index": { "$ref": "#/$defs/transformIndex" } }, "additionalProperties": false }
+          ]
+        },
+        "removeQueryParams": {
+          "anyOf": [
+            { "$ref": "#/$defs/transformQueryParamNames" },
+            { "type": "object", "required": ["names"], "properties": { "names": { "$ref": "#/$defs/transformQueryParamNames" } }, "additionalProperties": false }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "transformEntry": { "anyOf": [{ "$ref": "#/$defs/transformName" }, { "$ref": "#/$defs/parameterisedTransform" }] },
+    "transforms": { "type": "array", "items": { "$ref": "#/$defs/transformEntry" } },
     "fieldName": { "type": "string", "minLength": 1, "description": "Key in the output. Use camelCase (the checker warns otherwise)." },
     "extractType": { "enum": ["textContent", "attributeValue", "attributeValues", "innerHTML", "exists", "count", "jsonContent"] },
     "selector": {

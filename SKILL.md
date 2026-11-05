@@ -11,7 +11,7 @@ MCP `extract` tool. Your job: write a definition that is correct on the real pag
 test it, and release it only when the user agrees.
 
 Reference files (read when needed):
-- [references/config-reference.md](references/config-reference.md): every field shape, extract type, JSON path rule and transform.
+- [references/config-reference.md](references/config-reference.md): every field shape, extract type, JSON path rule and transform (incl. the ones with options: `split`, `after`, `before`, `between`, `nth`, `removeQueryParams`; no regex).
 - [references/request-options.md](references/request-options.md): sample pages (raw vs rendered), proxy, JS rendering, browser actions, XHR, POST, country, price tiers, Studio import file.
 - [references/selectors-and-pitfalls.md](references/selectors-and-pitfalls.md): supported selector syntax, stable selectors, engine pitfalls.
 - [references/troubleshooting.md](references/troubleshooting.md): empty fields, wrong values, blocked pages, JS-only content, API errors.
