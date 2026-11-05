@@ -348,7 +348,8 @@ sample has no value keeps the previous version's kind while the field config is 
 field, or changing its type or array-ness, is a breaking change (new major version). So pick names and types
 deliberately the first time: see releasing-and-versions.md.
 
-`required` is part of the schema: making a field required is a minor change (the output only narrows: it never
-comes back empty), making a required field optional again is a breaking change (major). Adding
+`required` is part of the schema and changing it either way is a breaking change (major): making a field required
+turns pages where it was empty into failed (charged) requests or dropped items, making it optional lets empty
+values back in. Decide it before the first release. Adding
 `includePosition` adds a `position` number (minor); removing it is breaking. The release sample must have a value
 for every required field, else releasing is refused.
