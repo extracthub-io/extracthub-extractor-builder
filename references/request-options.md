@@ -68,8 +68,8 @@ Rules:
 - Never sample from a logged-in or personal browser profile (cookies, account data, personalised prices):
   ExtractHub fetches anonymously, and the sample may contain private data.
 - Keep samples under 2 MB (the validator limit): save the page only, no assets.
-- Big sites vary per request: ExtractHub may use a different scraping provider per call
-  (`metadata.provider`) and the site may serve another layout each time. Validate on several samples.
+- Big sites vary per request: results can differ per call (ExtractHub may use different fetch routes, and
+  the site may serve another A/B layout each time). Validate on several samples.
 
 Rendered sample with Playwright (Node; `npm i -D playwright && npx playwright install chromium` once). Wait for
 the same element your `wait_for_element` action waits for:
@@ -104,14 +104,14 @@ as 5 KB of HTML). The REST endpoint returns the full page, exactly as the engine
 2. Fetch the page through the draft with the REST API and save the raw HTML to a file:
    ```bash
    curl -s -G -H "X-API-Key: $EXTRACTHUB_API_KEY" "https://api.extracthub.io/api/extractor/extract"      --data-urlencode "extractor_id=@user/slug@draft" --data-urlencode "target_url=<url>"      --data-urlencode "return_raw_html=true" --data-urlencode "async_fallback=false" -o samples/live-1.json
-   node -e 'const r=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));if(!r.success){console.error(JSON.stringify(r.errors??r.error));process.exit(1)}require("fs").writeFileSync(process.argv[2],r.result.rawHtml??"");console.log("provider:",r.result.metadata?.provider)' samples/live-1.json samples/live-1.html
+   node -e 'const r=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));if(!r.success){console.error(JSON.stringify(r.errors??r.error));process.exit(1)}require("fs").writeFileSync(process.argv[2],r.result.rawHtml??"");console.log("saved",(r.result.rawHtml??"").length,"chars")' samples/live-1.json samples/live-1.html
    ```
    The REST API takes `X-API-Key` (a `Bearer` header is rejected with `unauthorized`; only the MCP endpoint
    accepts Bearer). The answer is `{ success, result: { extracted, metadata, rawHtml } }`. With
    `async_fallback=false` a busy queue answers 503 `queue_timeout` (retry after `Retry-After`) instead of
    turning the call into an async job.
-3. Validate on the saved file with `scripts/validate.mjs`. For big sites repeat step 2 a few times (layouts and
-   providers vary per request: compare `metadata.provider`) and validate on each sample.
+3. Validate on the saved file with `scripts/validate.mjs`. For big sites repeat step 2 a few times (results can
+   differ per call: fetch routes and site A/B layouts vary) and validate on each sample.
 
 ## Choosing a fetch mode
 

@@ -144,8 +144,8 @@ A `sample_empty` warning means the field matched nothing on this sample. Fix it,
 genuinely absent on this page (`nextPageUrl` on the last page, `originalPrice` without a sale): then confirm
 it on a second page where it exists. The validator's `next_steps` names the empty fields, but read every
 warning yourself, not only `next_steps`. Validate against a second URL's sample too when you have one.
-Big sites (search engines, marketplaces, social networks) serve different layouts per request, and
-ExtractHub may route calls to different scraping providers (`metadata.provider` in the result): validate
+Big sites (search engines, marketplaces, social networks) serve different layouts per request (A/B
+layouts), and results can differ per call because ExtractHub may use different fetch routes: validate
 on samples from several fetches, and when a live run differs from the dry run, get a sample of that
 response before changing selectors.
 

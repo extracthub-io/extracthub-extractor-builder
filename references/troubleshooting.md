@@ -54,8 +54,8 @@ output, and the live `extract` result.
 - Ask for `return_raw_html` / look at the raw result if your tool offers it, and search it for your selectors.
   The MCP tool shortens it to ~64 KB; the REST endpoint returns the full page (request-options.md,
   "Samples through ExtractHub").
-- A different layout or provider on that call: compare `metadata.provider` between runs, and sample a few
-  fetches. Some empty results are genuine (e.g. a search page where the site showed only videos).
+- A different layout on that call (results can differ per call: fetch routes and site A/B layouts vary):
+  sample a few fetches and compare them. Some empty results are genuine (e.g. a search page where the site showed only videos).
 
 ## Blocked, captcha or error pages
 Signs: "Access denied", "Just a moment...", captcha markup, a tiny HTML, a 403/429/503 target status
