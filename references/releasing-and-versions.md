@@ -60,6 +60,10 @@ the `X-Extractor-Version` header (and `Deprecation` / `Sunset` for a deprecated 
 - `set_sample_output` (live key, owner) replaces the sample output of a released version (default: the latest)
   with the result of a job / batch item that ran exactly that version. It must fit the version's output schema
   (`schema_mismatch` lists the paths) and contain data; nothing else of the version changes.
+- The extractor page (catalog) shows the latest version's sample: "Extracted Data" is its sample output (the release
+  check's, or the one `set_sample_output` stored), the source panel is the sample page the release check ran on
+  (`sample_html` / `sample_json` / `fetch_sample` / a job that stored the page). Use a representative page. Releases from
+  a stored extraction only get the source panel after their first passing health check.
 
 ## Deleting drafts
 - `delete_extractor` deletes one of your private extractors that was never released (yanked versions count as

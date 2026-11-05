@@ -208,6 +208,10 @@ or the MCP tool `release_extractor` without `dry_run`. Optional: `bump` (may rai
 `changelog` (`changelog_required` when a version needs one). `nothing_to_release` means the draft equals the
 latest version; `release_check_failed` lists what blocks it (fix with `update_extractor`). Explain: consumers should call `@user/slug@1` (latest 1.x, gets fixes, never breaking changes) or an
 exact `@user/slug@1.0.0`; `@draft` is owner-only. Ask before switching visibility to `unlisted` or `public` (public only after a release, else `release_required`).
+The extractor's catalog page shows the latest release's sample: its "Extracted Data" is the sample output of the
+release check and its source preview is the sample page the check ran on. So release with a representative page
+(full data, not an empty or blocked one). A release from a stored extraction only (`sample_from_batch_item`, or a
+job without the page) has no source preview until its first passing health check.
 After a release, `set_sample_output` replaces a version's sample (shown on its page and returned to test
 keys) with a real result of exactly that version (a job / batch item run with `@user/slug@1.0.0` or `@1`).
 Details: references/releasing-and-versions.md.
