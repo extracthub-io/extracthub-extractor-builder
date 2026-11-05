@@ -245,7 +245,9 @@ Text:
 URLs:
 - `toAbsoluteUrl`: resolve a relative URL against the target URL (works on arrays too). Use it on every link and image.
 - `extractDomain`: `"https://a.example/x"` → `"a.example"`.
-- `extractUrl`: first `http(s)://...` inside a string.
+- `extractUrl`: first `http(s)://...` inside a string, up to the first whitespace
+  (`"https://en.wikipedia.org › wiki › Tesla"` → `"https://en.wikipedia.org"`). A string WITHOUT a URL is
+  returned unchanged, not `null`: it cannot be used to drop non-URL values.
 - `decodeUri`, `encodeUri`: URI component decode / encode.
 
 Numbers:
