@@ -225,6 +225,29 @@ function eachTransformsList(fields, path, visit) {
 	});
 }
 
+/** Element scroll (scroll / scroll_to_bottom with a selector): mirrors data-ops helpers/browser-actions.ts */
+export const ELEMENT_SCROLL_MAX_TIMEOUT_S = 30;
+const ELEMENT_ONLY_SCROLL_FIELDS = ['max_scrolls', 'pause_s', 'stop_when'];
+
+/** Rules of the scroll actions the JSON Schema cannot express (fields that need a selector, the 30 s cap) */
+function checkScrollActions(actions, err) {
+	if (!Array.isArray(actions)) return;
+	actions.forEach((action, i) => {
+		if (!isObject(action) || action.type !== 'scroll_to_bottom') return;
+		const path = `$.browserActions[${i}]`;
+		const hasSelector = action.selector !== undefined && action.selector !== null;
+		if (!hasSelector) {
+			for (const key of ELEMENT_ONLY_SCROLL_FIELDS) {
+				if (action[key] !== undefined) err(`${path}.${key}`, `${key} only works with a selector (scrolling inside an element); add selector or remove ${key}`);
+			}
+			return;
+		}
+		if (typeof action.timeout_s === 'number' && action.timeout_s > ELEMENT_SCROLL_MAX_TIMEOUT_S) {
+			err(`${path}.timeout_s`, `timeout_s is at most ${ELEMENT_SCROLL_MAX_TIMEOUT_S} s when scrolling inside an element`);
+		}
+	});
+}
+
 /**
  * Full check: JSON Schema + semantic rules.
  * Returns { errors, warnings, notes }, each [{ path, message }]. Notes are informational (price tier).
@@ -264,6 +287,7 @@ export function checkDefinition(def, schema) {
 		if (def.xhrUrlFilter && def.captureXhr !== true) warn('$.xhrUrlFilter', 'has no effect without "captureXhr": true');
 		if (def.allowJsEscalation === true && def.renderJavascript === true) warn('$.allowJsEscalation', 'has no effect when the page is already rendered with JavaScript');
 	}
+	checkScrollActions(def.browserActions, err);
 	if (def.method === 'GET' && def.body) warn('$.body', 'is ignored for GET requests; set "method": "POST"');
 	if (def.method === 'POST' && !def.body) warn('$.body', 'POST without a body; is that intended?');
 	if ((def.waitForSelector || def.waitTime) && def.renderJavascript !== true) {

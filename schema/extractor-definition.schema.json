@@ -277,6 +277,16 @@
         "value": { "type": "string", "minLength": 1 }
       }
     },
+    "scrollSelector": {
+      "description": "Element to scroll (e.g. a results panel): css or xpath only, no text selector",
+      "type": "object",
+      "required": ["type", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "enum": ["css", "xpath"] },
+        "value": { "type": "string", "minLength": 1 }
+      }
+    },
     "onError": { "enum": ["error", "skip"] },
     "browserAction": {
       "type": "object",
@@ -318,8 +328,9 @@
             "additionalProperties": false,
             "properties": {
               "type": true,
-              "x": { "type": "integer" },
-              "y": { "type": "integer" },
+              "x": { "type": "integer", "description": "Pixels to scroll by (relative)" },
+              "y": { "type": "integer", "description": "Pixels to scroll by (relative)" },
+              "selector": { "$ref": "#/$defs/scrollSelector", "description": "Scroll this element instead of the window" },
               "on_error": { "$ref": "#/$defs/onError" }
             }
           }
@@ -331,7 +342,11 @@
             "additionalProperties": false,
             "properties": {
               "type": true,
-              "timeout_s": { "type": "integer", "minimum": 1 },
+              "timeout_s": { "type": "integer", "minimum": 1, "description": "At most 30 with a selector" },
+              "selector": { "$ref": "#/$defs/scrollSelector", "description": "Scroll this element to its end instead of the window" },
+              "max_scrolls": { "type": "integer", "minimum": 1, "maximum": 50, "description": "Selector only; default 10" },
+              "pause_s": { "type": "number", "minimum": 0.5, "maximum": 5, "description": "Selector only: wait after each scroll; default 1.5" },
+              "stop_when": { "$ref": "#/$defs/scrollSelector", "description": "Selector only: stop once this element exists" },
               "on_error": { "$ref": "#/$defs/onError" }
             }
           }

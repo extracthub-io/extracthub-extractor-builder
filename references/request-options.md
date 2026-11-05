@@ -175,8 +175,8 @@ Run in order in the browser, before the HTML is taken. All require `useProxy` + 
 | `wait` | `wait_time_s` (int >= 1) | Fixed pause (last resort) |
 | `click` | `selector`, optional `wait_after_s` (int >= 0) | Cookie banners, "load more", tabs. Recommended: follow it with a separate `wait` |
 | `input` | `selector`, `value` | Type into a field |
-| `scroll` | `x`, `y` (pixels, int) | Scroll by an amount |
-| `scroll_to_bottom` | `timeout_s` (int >= 1) | Infinite scroll / lazy loading |
+| `scroll` | `x`, `y` (pixels, int), optional `selector` | Scroll by an amount (relative: from where the page or element is now) |
+| `scroll_to_bottom` | `timeout_s` (int >= 1), optional `selector` (+ `max_scrolls`, `pause_s`, `stop_when`) | Infinite scroll / lazy loading |
 
 - `selector` must be an object: `{ "type": "css", "value": "#results .card" }`. A plain string
   (`"selector": "#results .card"`) is a validation error. Types: `css` (preferred), `xpath`, `text`
@@ -187,6 +187,33 @@ Run in order in the browser, before the HTML is taken. All require `useProxy` + 
 - `on_error`: `"error"` (default, the request fails) or `"skip"` (continue). Use `"skip"` for optional steps
   such as a cookie banner that is not always shown.
 - Keep the total of waits and timeouts short (a few seconds to ~15 s); long sequences risk timeouts.
+
+### Scrolling inside an element (results panels)
+Without `selector`, `scroll` / `scroll_to_bottom` move the page window. Many sites keep the window still and load
+more items when an inner panel reaches its end (Google Maps results, chat / comment panels, side lists). Give the
+panel as `selector` (css or xpath; no `text` selector here):
+
+- `scroll` + `selector`: scrolls that element by `x` / `y` pixels.
+- `scroll_to_bottom` + `selector`: scrolls the element to its end, waits `pause_s` (0.5-5, default 1.5), and repeats
+  until it stops growing, after `max_scrolls` (1-50, default 10), once `stop_when` (a css / xpath selector, e.g. an
+  end-of-list message) exists, or at `timeout_s` (at most **30** with a selector). `max_scrolls`, `pause_s` and
+  `stop_when` are only valid with a `selector`.
+- A missing element follows `on_error`: `"skip"` does nothing, `"error"` (default) fails the action.
+- Same JavaScript-rendering price per call; a longer scroll does not cost more.
+- Element scrolling cannot run on every site. When it cannot run for a request, the call fails before any page is
+  fetched with `browser_action_unavailable` (HTTP 422, **not charged**): remove the `selector` (window scroll) or
+  retry later.
+
+Google Maps search results (`div[role="feed"]` loads 20 places per batch):
+
+```json
+"browserActions": [
+  { "type": "wait_for_element", "selector": { "type": "css", "value": "div[role=\"feed\"]" }, "timeout_s": 10 },
+  { "type": "scroll_to_bottom", "selector": { "type": "css", "value": "div[role=\"feed\"]" },
+    "timeout_s": 25, "max_scrolls": 8, "pause_s": 2,
+    "stop_when": { "type": "xpath", "value": "//span[contains(text(), \"reached the end of the list\")]" } }
+]
+```
 
 ```json
 "browserActions": [

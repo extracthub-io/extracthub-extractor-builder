@@ -39,7 +39,7 @@ output, and the live `extract` result.
 ## A list has the wrong number of items
 - Too many: ads / sponsored / template / recommendation cards match too. Scope to the results container and
   add `:not(...)` for the ad marker.
-- Too few: the page lazy-loads (JS + `scroll_to_bottom`), paginates (extract `nextPageUrl` and let the caller
+- Too few: the page lazy-loads (JS + `scroll_to_bottom`; with a `selector` when an inner panel scrolls, not the window: see request-options.md), paginates (extract `nextPageUrl` and let the caller
   loop), or the selector misses a variant class (use the shared class or an attribute both variants have).
 - Objects misaligned: you used `subFields` with `isArray: true` over page-level selectors; switch to an item
   selector with `subExtractor`.
