@@ -43,7 +43,7 @@ the `X-Extractor-Version` header (and `Deprecation` / `Sunset` for a deprecated 
 
 ## Releasing
 - Release only when the user agrees and the live test of the draft is right.
-- MCP: `release_extractor` with `extractor_id`, a sample page (`sample_html` / `sample_json`, or
+- MCP: `release_extractor` with `extractor_id`, a sample page (`sample_html` / `sample_json`, `sample_raw_html_url`, or
   `fetch_sample: true` = one billed extract of the example URL) and `dry_run: true` first: it returns the
   release check, the planned next versions and the schema diff without releasing. Then call it without
   `dry_run` (optional `bump`, `changelog`, `base_major`). Live API key only.
@@ -57,13 +57,36 @@ the `X-Extractor-Version` header (and `Deprecation` / `Sunset` for a deprecated 
   (`{ batch_id, index }`) instead of a sample page. If that run stored the page (a job from `extract` with
   `return_raw_html` / `raw_html`), the full release check runs on it; otherwise only the stored extraction is
   checked and it must come from the current draft config (`sample_stale` otherwise; batches never store pages).
+- Pages over 2,000,000 characters (`sample_html is over 2,000,000 characters`): `extract` the page with
+  `raw_html: "link"` and pass its `raw_html_url` as `sample_raw_html_url` (release and `validate_extractor_config`).
+  The link must be yours and fresh (1 h; `invalid_signature`, `link_expired`, `not_your_link`, `raw_html_expired`
+  otherwise). The page is read on the server (no size limit), runs the full check and becomes the preview page.
+  One sample source per call.
 - `set_sample_output` (live key, owner) replaces the sample output of a released version (default: the latest)
   with the result of a job / batch item that ran exactly that version. It must fit the version's output schema
   (`schema_mismatch` lists the paths) and contain data; nothing else of the version changes.
 - The extractor page (catalog) shows the latest version's sample: "Extracted Data" is its sample output (the release
   check's, or the one `set_sample_output` stored), the source panel is the sample page the release check ran on
-  (`sample_html` / `sample_json` / `fetch_sample` / a job that stored the page). Use a representative page. Releases from
-  a stored extraction only get the source panel after their first passing health check.
+  (`sample_html` / `sample_json` / `sample_raw_html_url` / `fetch_sample` / a job that stored the page). Use a
+  representative page of the example url. Releases from a stored extraction only get the source panel after their
+  first passing health check (or `set_preview_page`).
+- Release `warnings` (never errors): `no_preview_page` (the sample has no page: batch item, or a job without the
+  page) and `preview_url_differs` (the sample page is not the draft's example url). Both name `set_preview_page`.
+- `set_preview_page` (live key, owner) replaces the preview page of one exact released version
+  (`extractor_id: "@user/slug@1.0.0"`, not yanked) without a new version, like re-fetching it in the Studio:
+  - `source`: `"fetch"` (one billed extract of `url`, default the version's example url, with this exact
+    version), `"sample_html"` (+ `sample_html`, optional `url` = where the page came from), `"job_id"` (+ `job_id`,
+    your succeeded job of this extractor that stored the page: `page_not_stored` otherwise) or `"raw_html_url"`
+    (+ `raw_html_url` from your own `extract` with `raw_html: "link"`).
+  - `also_set_sample_output` (default true): the version's extraction of the same page becomes its sample output
+    (`fetch`: the extract's own output), so the preview and the sample always match. A result that does not fit
+    the output schema (`schema_mismatch`) or is empty (`empty_result`) changes nothing.
+  - `dry_run: true`: url, page size, `over_preview_cap` (the stored preview is cut at 1 MB), the price (`fetch`,
+    nothing fetched) or the extracted fields, and `shown_on_public_page` (only the latest version of the newest
+    major is shown on the extractor page). The answer also says `url_matches_example`.
+- `get_extractor` lists per version `preview: { available, source_url, fetched_at, size }` (nulls for previews stored
+  before 2026-11-06). `update_extractor` that changes `url` adds `preview_note`: the released preview still shows the
+  old page until `set_preview_page`.
 
 ## Deleting drafts
 - `delete_extractor` deletes one of your private extractors that was never released (yanked versions count as

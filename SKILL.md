@@ -57,6 +57,8 @@ with `scripts/validate.mjs`, so you never paste a page into a tool call. Then de
    charged, so it is worth one live test; otherwise, or if that test is blocked, `useProxy: true`.
 2. Is it in a `<script>` JSON block (`application/ld+json`, `script#__NEXT_DATA__`, `window.__STATE__ = {...}`,
    `self.__next_f.push`)? → still a plain fetch, read it with `jsonContent`. Often the most stable source.
+   A list in that JSON: one `jsonPath` with `[*]` + JSON `subFields` (config-reference, "Lists from embedded
+   JSON"), so the page stays on the plain-fetch price instead of the JavaScript tier.
 3. Does the URL return JSON, or does the page load its data from a JSON API you can call directly? →
    `sourceType: "json"` on that URL.
 4. Only an empty shell / skeleton in the raw HTML? → `renderJavascript: true` + a `wait_for_element`
@@ -200,7 +202,9 @@ change). Like the Studio, it checks the draft on a sample page first: pass your 
 script, or `fetch_sample: true` to let ExtractHub fetch the example URL once (one billed extract; tell the
 user), or `sample_from_job_id` / `sample_from_batch_item` to reuse the stored result of one of your own
 runs of the draft (free; a job that stored the page re-runs the full check, otherwise the stored extraction
-must come from the current draft config). Run the dry run first and show the user the planned version and schema diff:
+must come from the current draft config). A page over the 2,000,000 character `sample_html` limit: `extract` it
+with `raw_html: "link"` and pass the returned link as `sample_raw_html_url` (no size limit; same full check; also on
+`validate_extractor_config`). Run the dry run first and show the user the planned version and schema diff:
 ```bash
 node scripts/validate.mjs --release @user/slug --html samples/page-1.html
 ```
@@ -211,10 +215,17 @@ latest version; `release_check_failed` lists what blocks it (fix with `update_ex
 exact `@user/slug@1.0.0`; `@draft` is owner-only. Ask before switching visibility to `unlisted` or `public` (public only after a release, else `release_required`).
 The extractor's catalog page shows the latest release's sample: its "Extracted Data" is the sample output of the
 release check and its source preview is the sample page the check ran on. So release with a representative page
-(full data, not an empty or blocked one). A release from a stored extraction only (`sample_from_batch_item`, or a
-job without the page) has no source preview until its first passing health check.
+(full data, not an empty or blocked one), ideally of the example `url`. The release answer's `warnings` say when
+it is not: `no_preview_page` (a stored extraction only: `sample_from_batch_item`, or a job without the page) and
+`preview_url_differs` (the sample page is not the example url). Fix both with `set_preview_page`.
 After a release, `set_sample_output` replaces a version's sample (shown on its page and returned to test
 keys) with a real result of exactly that version (a job / batch item run with `@user/slug@1.0.0` or `@1`).
+`set_preview_page` (live key, owner, exact version `@user/slug@1.0.0`) replaces the version's preview page and, by
+default, its sample output from the same page, without a new version: `source: "fetch"` (one billed extract of the
+example url, or `url`; tell the user), `"sample_html"`, `"job_id"` (your job that stored the page) or `"raw_html_url"`.
+Run it with `dry_run: true` first (price, page size, extracted fields; nothing fetched). `get_extractor` shows each
+version's `preview` (`available`, `source_url`, `fetched_at`, `size`). After `update_extractor` changes `url`, the
+released preview still shows the old page until you call `set_preview_page`.
 Details: references/releasing-and-versions.md.
 
 ### Without the MCP server

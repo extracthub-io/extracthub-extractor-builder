@@ -10,7 +10,7 @@ ExtractHub engine runs; nothing else is accepted.
 - Extract types
 - Selector arrays and combineStrategy (fallbacks)
 - Text options
-- Embedded JSON inside HTML (jsonContent, jsonPaths, window state)
+- Embedded JSON inside HTML (jsonContent, jsonPaths, window state, lists with jsonPath)
 - JSON source (sourceType "json")
 - Captured XHR responses
 - Transforms (complete list)
@@ -116,13 +116,13 @@ cannot take a position.
 
 | extract | Returns | Extra keys |
 |---|---|---|
-| `textContent` (default) | Text of the element and its descendants, whitespace collapsed, HTML entities decoded. `<script>`/`<style>` text is skipped. | `textSeparator`, `excludeTags` |
-| `attributeValue` | One attribute's value | `attributeName` (required) |
+| `textContent` (default) | Text of the element and its descendants, whitespace collapsed, every HTML entity decoded as a browser does (named ones such as `&middot;` `&bull;` `&ndash;` `&hellip;`, and numeric `&#183;` / `&#xB7;`; `&nbsp;` gives a plain space; unknown names such as `&foo;` stay). `<script>`/`<style>` text is skipped. | `textSeparator`, `excludeTags` |
+| `attributeValue` | One attribute's value, entities decoded as `getAttribute` does (`&amp;` → `&`; `&copy=2` in a URL stays) | `attributeName` (required) |
 | `attributeValues` | `"name:value;name:value"` string of the listed attributes | `attributeNames` (required), `keyValueSeparator` (`:`), `attributeSeparator` (`;`) |
 | `innerHTML` | Inner HTML string (for lists with `subExtractor`, or with `toMarkdown`) | `allowedAttributes` (keep only these attributes) |
 | `exists` | `true` / `false`: did anything match | |
 | `count` | Number of matched elements | |
-| `jsonContent` | Parses the matched `<script>` text as JSON, then `jsonPaths` | `jsonPaths` |
+| `jsonContent` | Parses the matched `<script>` text as JSON, then `jsonPaths` (or one `jsonPath` with JSON sub-fields) | `jsonPaths`, or `jsonPath` + `subFields` / `subExtractor` |
 
 Notes:
 - `attributeValue` on an element WITHOUT that attribute returns `null` (in an `isArray` field: a `null` entry
@@ -181,8 +181,9 @@ stable than the DOM.
 - SEVERAL paths → an object keyed by the full path text: `{"agent.name": "...", "agent.phone": "..."}`.
 - No `jsonPaths` → the whole parsed JSON.
 - Path syntax: dot notation, `[n]` indexes, quoted keys for odd names: `props.pageProps["product-detail"].name`,
-  `["@graph"][0].name`. A leading `$.` is accepted. There is NO wildcard (`[*]`) or filter: a path ending at an
-  array returns the whole array (each element as-is).
+  `["@graph"][0].name`. A leading `$.` is accepted. No wildcard in `jsonPaths`: a path ending at an array returns
+  the whole array (each element as-is). To map an array into a list of chosen properties (`[*]` + sub-fields),
+  use the `jsonPath` form: see "Lists from embedded JSON" below.
 - Unparsable JSON or a missing path → `null`.
 - A non-array field reads the FIRST matching script. Pages often have several `ld+json` blocks; target the
   right one with a more specific selector when possible, or check which one comes first.
@@ -221,6 +222,70 @@ Data often sits at different paths (page variants, A/B tests) or in different sc
   "combineStrategy": "first", "extract": "jsonContent", "jsonPaths": ["videoDetails.viewCount"], "transforms": ["toNumber"] }
 ```
 Both can be combined (several paths + coalesce inside each source, then the selector fallback).
+
+### Lists from embedded JSON (jsonContent + jsonPath)
+For a list kept in a script's JSON (YouTube `ytInitialData`, `__NEXT_DATA__` product grids, `ld+json` `ItemList`,
+`window.__INITIAL_STATE__` search results), give the field ONE `jsonPath` (singular) instead of `jsonPaths`. The
+rules of JSON source fields (next section) then apply to the parsed script JSON, unchanged:
+
+- `jsonPath`: dot notation, `[n]`, `["key"]`, a leading `$.`, and `[*]` (each element of an array).
+- `subFields` (each with its own `jsonPath`, relative to the value / each list item), or `subExtractor.fields`
+  (JSON fields). No `selector` / `extract` / other HTML keys inside them.
+- `required` (field and sub-fields), `includePosition` (with `[*]` and sub-fields) and `transforms` work as in
+  JSON fields.
+- No `isArray` (the `[*]` makes the list), no `combineStrategy`, never together with `jsonPaths`.
+- Several matched scripts (e.g. two `ld+json` blocks): the field uses the FIRST one whose JSON parses and whose
+  `jsonPath` gives a non-empty value; a `[*]` list comes from that one script only. Unparsable JSON everywhere → `null`.
+
+This keeps such pages on the plain-fetch price instead of the JavaScript tier (and is more stable than DOM
+selectors with generated classes).
+
+YouTube-like channel page (`var ytInitialData = {...}` → `script#__window__ytInitialData`):
+```json
+{
+  "version": "v1.0",
+  "sourceType": "html",
+  "fields": [
+    {
+      "name": "videos",
+      "selector": "script#__window__ytInitialData",
+      "extract": "jsonContent",
+      "jsonPath": "contents.twoColumnBrowseResultsRenderer.tabs[1].tabRenderer.content.richGridRenderer.contents[*].richItemRenderer.content.lockupViewModel",
+      "includePosition": true,
+      "subFields": [
+        { "name": "videoId", "jsonPath": "contentId", "required": true },
+        { "name": "title", "jsonPath": "metadata.lockupMetadataViewModel.title.content" }
+      ]
+    }
+  ]
+}
+```
+Grid entries without a `contentId` (e.g. a "continuation" item) are dropped, then `position` is numbered 1..n.
+
+`ld+json` `ItemList` (the page may have other `ld+json` blocks before it, e.g. `Organization` or `WebSite`: a block
+without `itemListElement` is skipped; a `BreadcrumbList` also has `itemListElement`, so if it comes first, select the
+list block more precisely or check the order):
+```json
+{
+  "version": "v1.0",
+  "sourceType": "html",
+  "fields": [
+    {
+      "name": "items",
+      "selector": "script[type=\"application/ld+json\"]",
+      "extract": "jsonContent",
+      "jsonPath": "itemListElement[*]",
+      "subFields": [
+        { "name": "position", "jsonPath": "position", "transforms": ["toNumber"] },
+        { "name": "name", "jsonPath": "name", "required": true },
+        { "name": "url", "jsonPath": "url" }
+      ]
+    }
+  ]
+}
+```
+With `subExtractor.fields` instead of `subFields`, each item is read by JSON fields (nested lists with their own
+`[*]`, sub-fields of their own): `"subExtractor": { "fields": [{ "name": "offers", "jsonPath": "offers[*].price" }] }`.
 
 ## JSON source (sourceType "json")
 
@@ -298,7 +363,7 @@ Text:
 - `slugify`: `"Hello World!"` → `"hello-world"`.
 - `truncate` (100 chars + `...`), `truncate50`, `truncate200`.
 - `removeHtmlTags`: strip tags from an HTML string.
-- `decodeHtml`: decode `&amp; &lt; &gt; &quot; &#39; &nbsp;` (text is already decoded by textContent).
+- `decodeHtml`: decode every named and numeric HTML entity, as textContent does (text is already decoded by textContent; use it on `innerHTML` / JSON strings).
 - `removeCommonJunk`: remove `[removed]`, `[deleted]`, `advertisement`.
 - `reverse`: reverse a string.
 - `toMarkdown`: HTML → Markdown (use with `extract: "innerHTML"`).
@@ -333,7 +398,7 @@ Other types:
 Arrays:
 - `splitByComma`, `splitByPipe`, `splitByNewline`: string → trimmed array.
 - `joinWithComma` (`", "`), `joinWithSpace`: array → string.
-- `first`, `last`: one element of an array.
+- `first`, `last`: one element of an array; an empty array gives `null` (as `coalesce`), e.g. `["compact", "first"]` when no element has a value.
 - `unique`: remove duplicates. `compact`: remove `null` / `""`.
 - `coalesce`: first non-empty value of an array or object (e.g. after several `jsonPaths`).
 

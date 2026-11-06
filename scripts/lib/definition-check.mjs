@@ -344,6 +344,10 @@ function checkHtmlFields(fields, path, err, warn, insideItem) {
 	fields.forEach((f, i) => {
 		if (!isObject(f)) return;
 		const p = `${path}[${i}]`;
+		if (f.jsonPath !== undefined) {
+			checkJsonContentList(f, p, err, warn);
+			return;
+		}
 		checkHtmlLeaf(f, p, err, warn);
 		if (Array.isArray(f.subFields)) {
 			f.subFields.forEach((sf, j) => isObject(sf) && checkHtmlLeaf(sf, `${p}.subFields[${j}]`, err, warn));
@@ -382,6 +386,45 @@ function checkHtmlLeaf(f, p, err, warn) {
 	if (extract === 'innerHTML' && !f.subExtractor && !(f.transforms ?? []).some((t) => t === 'toMarkdown' || t === 'removeHtmlTags')) {
 		warn(`${p}`, 'innerHTML returns raw HTML; consider "toMarkdown" or textContent');
 	}
+}
+
+/**
+ * extract "jsonContent" + jsonPath: a list (or object) from a <script> block's JSON, with the JSON field rules
+ * (mirrors data-ops helpers/extractor-json-content.ts). Keeps the page on the plain-fetch price.
+ */
+function checkJsonContentList(f, p, err, warn) {
+	const selectors = typeof f.selector === 'string' ? [f.selector] : Array.isArray(f.selector) ? f.selector : [];
+	selectors.forEach((s, k) => {
+		if (typeof s !== 'string') return;
+		const reason = unsupportedSelectorReason(s);
+		if (reason) err(`${p}.selector${Array.isArray(f.selector) ? `[${k}]` : ''}`, `"${s}": ${reason}`);
+	});
+	if (f.extract !== 'jsonContent') {
+		err(`${p}.jsonPath`, 'jsonPath on an HTML field needs "extract": "jsonContent" (it reads the JSON of a <script> block)');
+		return;
+	}
+	if (f.jsonPaths !== undefined) err(`${p}.jsonPaths`, 'use either jsonPath (one path; [*] lists and JSON sub-fields) or jsonPaths (several values), not both');
+	if (f.isArray !== undefined) err(`${p}.isArray`, 'isArray is not used with jsonContent + jsonPath: a [*] in jsonPath makes the list');
+	if (f.combineStrategy !== undefined) {
+		err(`${p}.combineStrategy`, 'combineStrategy is not used with jsonContent + jsonPath: the first matched element whose JSON has a value at jsonPath is used');
+	}
+	if (typeof f.jsonPath === 'string' && /\[\?|\.\.|\[\d*:\d*\]/.test(f.jsonPath)) {
+		err(`${p}.jsonPath`, 'only dot notation, [n], ["key"], [*] and a leading "$." are supported (no filters, recursive descent or slices)');
+	}
+	if (typeof f.selector === 'string' && !/script/i.test(f.selector)) {
+		warn(`${p}.selector`, 'jsonContent is meant for <script> blocks (application/ld+json, __NEXT_DATA__, script#__window__NAME)');
+	}
+	const hasItems = (Array.isArray(f.subFields) && f.subFields.length > 0) || (isObject(f.subExtractor) && Array.isArray(f.subExtractor.fields));
+	if (f.includePosition === true && !(typeof f.jsonPath === 'string' && f.jsonPath.includes('[*]') && hasItems)) {
+		err(`${p}.includePosition`, 'includePosition needs a list of objects: a [*] in jsonPath with subFields / subExtractor');
+	}
+	if (Array.isArray(f.subFields)) {
+		checkNames(f.subFields, `${p}.subFields`, err, warn);
+		if (f.includePosition === true && f.subFields.some((sf) => isObject(sf) && sf.name === 'position')) {
+			err(`${p}.includePosition`, 'includePosition adds "position" to each item, but a sub-field is already named "position"; rename it');
+		}
+	}
+	if (isObject(f.subExtractor) && Array.isArray(f.subExtractor.fields)) checkJsonFields(f.subExtractor.fields, `${p}.subExtractor.fields`, err, warn);
 }
 
 function checkJsonFields(fields, path, err, warn) {

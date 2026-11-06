@@ -181,14 +181,19 @@
         "keyValueSeparator": { "type": "string" },
         "attributeSeparator": { "type": "string" },
         "jsonPaths": { "type": "array", "items": { "type": "string" } },
+        "jsonPath": {
+          "type": "string",
+          "minLength": 1,
+          "description": "With extract \"jsonContent\": one JSON path into the script's JSON ([*] makes a list); subFields / subExtractor.fields are then JSON fields (jsonPath)"
+        },
         "transforms": { "$ref": "#/$defs/transforms" },
         "subExtractor": {
           "type": "object",
           "required": ["fields"],
           "additionalProperties": false,
-          "properties": { "fields": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/htmlField" } } }
+          "properties": { "fields": { "type": "array", "minItems": 1 } }
         },
-        "subFields": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/htmlSubField" } },
+        "subFields": { "type": "array", "minItems": 1 },
         "group": {
           "type": "object",
           "required": ["into", "strategy"],
@@ -199,12 +204,26 @@
           }
         }
       },
-      "if": { "required": ["subFields"] },
+      "if": { "required": ["jsonPath"] },
       "then": {
-        "required": ["isArray"],
-        "not": { "required": ["selector"] }
+        "required": ["selector"],
+        "properties": {
+          "subFields": { "items": { "$ref": "#/$defs/jsonSubField" } },
+          "subExtractor": { "properties": { "fields": { "items": { "$ref": "#/$defs/jsonField" } } } }
+        }
       },
-      "else": { "required": ["selector"] }
+      "else": {
+        "properties": {
+          "subFields": { "items": { "$ref": "#/$defs/htmlSubField" } },
+          "subExtractor": { "properties": { "fields": { "items": { "$ref": "#/$defs/htmlField" } } } }
+        },
+        "if": { "required": ["subFields"] },
+        "then": {
+          "required": ["isArray"],
+          "not": { "required": ["selector"] }
+        },
+        "else": { "required": ["selector"] }
+      }
     },
     "htmlSubField": {
       "type": "object",
@@ -234,6 +253,17 @@
         }
       }
     },
+    "jsonSubField": {
+      "type": "object",
+      "required": ["name", "jsonPath"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "$ref": "#/$defs/fieldName" },
+        "jsonPath": { "type": "string", "minLength": 1 },
+        "transforms": { "$ref": "#/$defs/transforms" },
+        "required": { "type": "boolean", "description": "List items (objects) without a value are dropped (a single object becomes null)" }
+      }
+    },
     "jsonField": {
       "type": "object",
       "required": ["name"],
@@ -244,21 +274,7 @@
         "transforms": { "$ref": "#/$defs/transforms" },
         "required": { "type": "boolean", "description": "Top-level: a fetched page without a value fails the request (still charged). In a subExtractor: list items without it are dropped" },
         "includePosition": { "type": "boolean", "description": "List of objects: adds a 1-based position to each item, numbered after dropped items" },
-        "subFields": {
-          "type": "array",
-          "minItems": 1,
-          "items": {
-            "type": "object",
-            "required": ["name", "jsonPath"],
-            "additionalProperties": false,
-            "properties": {
-              "name": { "$ref": "#/$defs/fieldName" },
-              "jsonPath": { "type": "string", "minLength": 1 },
-              "transforms": { "$ref": "#/$defs/transforms" },
-              "required": { "type": "boolean", "description": "List items (objects) without a value are dropped (a single object becomes null)" }
-            }
-          }
-        },
+        "subFields": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/jsonSubField" } },
         "subExtractor": {
           "type": "object",
           "required": ["fields"],
