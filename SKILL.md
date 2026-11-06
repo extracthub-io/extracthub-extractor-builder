@@ -176,7 +176,8 @@ selectors; tell the user the definition is unverified until it runs in ExtractHu
 1. `create_extractor` with the definition fields (`name`, `description`, `url`, `method`, `body`, `headers`,
    `useProxy`, `renderJavascript`, `captureXhr`, `xhrUrlFilter`, `browserActions`, `proxyCountry`,
    `allowJsEscalation`, `waitForSelector`, `waitTime`, `extractorConfig`, `category`, `tags`, `slug`, `visibility`). Keep `visibility`
-   private unless the user asked otherwise. The slug can only be set here (later it is fixed). Note the
+   private unless the user asked otherwise. `category` is one value from the "Catalog category" table in
+   references/request-options.md (e.g. `travel`, not `Travel & Hospitality`). The slug can only be set here (later it is fixed). Note the
    returned extractor id `@user/slug`. Creating, updating and releasing need a LIVE API key: with a test key
    (`exth_test_...`) these tools answer `live_key_required` and only `validate_extractor_config` works.
    A `validation_error` lists the failing paths in `details.errors`; `slug_taken` / `invalid_slug`: pick another.

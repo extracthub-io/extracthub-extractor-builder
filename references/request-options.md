@@ -5,6 +5,7 @@ How ExtractHub fetches the page before extraction. These are the top-level keys 
 
 ## Contents
 - Definition keys
+- Catalog category (allowed values)
 - Sample pages (raw vs rendered, samples through ExtractHub)
 - Choosing a fetch mode (decision table)
 - Proxy, country, JS escalation
@@ -38,12 +39,38 @@ How ExtractHub fetches the page before extraction. These are the top-level keys 
 | `allowJsEscalation` | boolean | `false` | If a plain fetch looks blocked/empty, retry once with JS rendering |
 | `waitForSelector` | string (CSS) | | With `renderJavascript`: wait (max 15 s) until this element exists |
 | `waitTime` | number (ms) | | With `renderJavascript`: extra wait after `waitForSelector`, capped at 15000 |
-| `category` | enum | | Catalog category: `ecommerce`, `news`, `social-media`, `job-listings`, `real-estate`, `events`, `research`, `travel`, `healthcare`, `finance`, `education`, `entertainment`, `sports`, `other` |
+| `category` | enum | | Catalog category (a value, see "Catalog category" below): `ecommerce`, `news`, `social-media`, `job-listings`, `real-estate`, `events`, `research`, `travel`, `healthcare`, `finance`, `education`, `entertainment`, `sports`, `other` |
 | `tags` | string[] | | Free tags |
 | `extractorConfig` | object | required | See config-reference.md |
 
 Callers of the extract API can override the URL (always) and the POST headers/body (their own request);
 everything else comes from the released version.
+
+## Catalog category
+
+`category` takes one **value** from this list, exactly as written (lowercase, with hyphens). The label is only
+what the catalog shows. Labels (`Travel & Hospitality`), title case (`Travel`) and other words (`media`,
+`shopping`) are refused with `invalid_category`. Leave `category` out when nothing fits, or use `other`.
+
+| Value | Catalog label | For pages such as |
+|---|---|---|
+| `ecommerce` | E-commerce | product lists and details, prices, marketplaces, shopping results |
+| `news` | News & Articles | news, blogs, articles, press releases |
+| `social-media` | Social Media | profiles, posts, comments, video platforms |
+| `job-listings` | Job Listings | job boards, job details, company career pages |
+| `real-estate` | Real Estate | property listings, rentals, agents |
+| `events` | Events & Tickets | event listings, tickets, venues |
+| `research` | Research & Data | search engine results, directories, datasets, papers, public records |
+| `travel` | Travel & Hospitality | hotels, flights, places and maps, restaurants, reviews of places |
+| `healthcare` | Healthcare | doctors, clinics, drugs, health information |
+| `finance` | Finance & Investing | stocks, crypto, exchange rates, company financials |
+| `education` | Education | courses, schools, universities |
+| `entertainment` | Entertainment | movies, TV, music, games, books |
+| `sports` | Sports | scores, fixtures, players, teams |
+| `other` | Other | anything else |
+
+Pick by what the extracted data is about, not by the site's brand: Google Maps places -> `travel`, Google web
+results -> `research`, an Amazon product -> `ecommerce`.
 
 ## Sample pages (raw vs rendered)
 
@@ -203,6 +230,9 @@ panel as `selector` (css or xpath; no `text` selector here):
 - Element scrolling cannot run on every site. When it cannot run for a request, the call fails before any page is
   fetched with `browser_action_unavailable` (HTTP 422, **not charged**): remove the `selector` (window scroll) or
   retry later.
+- `validate_extractor_config` (and `create_extractor` / `update_extractor` / the `release_extractor` plan) warn with
+  `element_scroll_unavailable` (path of the first element scroll, e.g. `browserActions[1].selector`) when the site
+  cannot run it right now. It is a warning: saving and releasing still work. The offline checker cannot know this.
 
 Google Maps search results (`div[role="feed"]` loads 20 places per batch):
 
