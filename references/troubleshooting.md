@@ -72,7 +72,7 @@ Signs: "Access denied", "Just a moment...", captcha markup, a tiny HTML, a 403/4
 
 ## A version is marked broken by health checks
 Health marks a version broken only when, on 2 probes in a row of the right page, a `required: true` field was
-empty, a root list was empty / below `minItems`, or nothing at all was extracted. The run reason names the empty
+empty, a required list was empty `[]`, or nothing at all was extracted. The run reason names the empty
 fields (`empty: price`) or says `nothing extracted: every field is empty`.
 1. A required field that a valid page may lack (rating, discount, zestimate, sale price): make it optional. That is
    a schema change (major version), and null then never fails a request or a probe.
