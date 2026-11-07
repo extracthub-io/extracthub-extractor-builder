@@ -134,6 +134,13 @@ Rules that matter most:
   request (`required_fields_missing`), still charged because the page was fetched; batch and pipelines retry it
   once. In list items, `required` on a sub-field drops incomplete items instead, and `includePosition: true`
   numbers the rest (references/config-reference.md, "Required fields and list positions").
+- `required: true` = the field must have a value on every page of this kind: an empty value fails the API
+  request (422 `required_fields_missing`, charged when the scraping service was billed) and an empty value in a
+  health probe makes the version `broken` (2 failing probes in a row). Mark the 1-3 fields that prove the page
+  was parsed (title / name / id / price on a product page); do not mark everything. Leave optional any field a
+  valid page may lack (ratings, discounts, zestimate, sale price, secondary images): null is then a normal value
+  and never affects health. Health marks a version broken only when a required field is empty, a root list is
+  empty / below `minItems`, or nothing at all was extracted (references/releasing-and-versions.md, "Health checks").
 - Never put secrets (cookies, tokens) in headers or body; public and unlisted definitions are visible.
 - Custom `headers` (the `Cookie` header included) are not sent when the request goes through the scraping
   proxy (`useProxy: true`); they are only sent on direct requests (`useProxy: false`). Scraping providers manage

@@ -96,6 +96,16 @@ array fields into one array instead.
 - **Sub-field (`subExtractor.fields[]` or `subFields[]`): incomplete items are dropped.** A list item (object)
   without the value is removed from the list; a single object becomes `null`. Never a request failure by itself:
   mark the parent field `required` too if an empty list should fail.
+- **Health checks judge only required fields.** An empty required field in a probe makes the version `broken`
+  (2 failing probes in a row); optional fields may be null / empty and never fail a probe (their fill rate is only
+  shown to the owner). A version with no required field is broken only when nothing at all is extracted or a root
+  list is empty. See releasing-and-versions.md, "Health checks".
+
+Which fields to mark: `required: true` = the field must have a value on every page of this kind. Mark the 1-3
+fields that prove the page was parsed (title / name / id / price on a product page); do not mark everything.
+Leave optional any field a valid page may lack (ratings, discounts, zestimate, sale price, secondary images):
+null is then a normal value, never a failed request and never a health failure. An owner who wants a check on an
+optional field without failing requests can add a health custom check (`not_empty`, "is filled" in Studio).
 
 ```json
 { "name": "products", "selector": "li.product-card", "isArray": true, "extract": "innerHTML", "includePosition": true,

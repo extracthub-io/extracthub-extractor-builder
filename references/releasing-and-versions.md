@@ -8,6 +8,7 @@
 - Semver: what counts as breaking
 - Visibility
 - Deprecate and yank (owner, in Studio)
+- Health checks
 
 ## Lifecycle: draft → versions
 - `create_extractor` saves a new extractor as a DRAFT (private by default). Its id is `@username/slug`; the
@@ -119,3 +120,18 @@ Ask the user before making anything public or unlisted.
   `Deprecation` / `Sunset` headers and notifications; the major keeps working until the sunset.
 - Yank an exact version (reason required, irreversible): `@N` skips it, an exact pin to it gets 410
   `version_yanked`. Use it for versions that return wrong data.
+
+## Health checks
+Released versions are probed on a schedule (public: by the platform; private: opt-in, owner-paid). The default test
+probes the version's sample page. A probe that served the right page is judged by the output schema:
+- **broken_selector** (the version becomes `broken` after 2 such probes in a row): a field with `required: true`
+  is empty in every item, a root list (array of objects) is empty / below `minItems`, or nothing at all was
+  extracted (every field empty).
+- **degraded**: a required field is filled in fewer items than the test's fill rate (80% by default), a type
+  drifted on a required field, or an owner custom check failed.
+- **Optional fields never fail a probe**: null / empty is a normal value (their fill rate is recorded for the
+  owner only). Block pages, tiny pages and a test URL that leads to another page are not counted as broken.
+
+So mark as `required` the 1-3 fields that prove the page was parsed, and leave optional every field a valid page
+may lack (ratings, discounts, zestimate, sale price, secondary images). To watch an optional field without failing
+requests, add a custom check (`not_empty`) to the health test in Studio.

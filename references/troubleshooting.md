@@ -9,6 +9,7 @@ output, and the live `extract` result.
 - A list has the wrong number of items
 - Everything is empty on the live run but the dry run worked
 - Blocked, captcha or error pages
+- A version is marked broken by health checks
 - JavaScript-only content
 - JSON sources
 - API errors from extract
@@ -68,6 +69,17 @@ Signs: "Access denied", "Just a moment...", captcha markup, a tiny HTML, a 403/4
 - Prefer the site's JSON endpoints or embedded JSON: often less protected than the HTML.
 - A block page answered with HTTP 200 looks like a success with empty fields. Mark the core fields
   `required: true` so it fails visibly (`required_fields_missing`, still charged; config-reference.md).
+
+## A version is marked broken by health checks
+Health marks a version broken only when, on 2 probes in a row of the right page, a `required: true` field was
+empty, a root list was empty / below `minItems`, or nothing at all was extracted. The run reason names the empty
+fields (`empty: price`) or says `nothing extracted: every field is empty`.
+1. A required field that a valid page may lack (rating, discount, zestimate, sale price): make it optional. That is
+   a schema change (major version), and null then never fails a request or a probe.
+2. A required field that should always be there: the selector broke. Fix it (patch) using the stored HTML sample of
+   the failed run, then release.
+3. Optional fields never cause `broken`; if the reason lists only optional fields, the version predates the
+   required-fields rule and the next probe settles it.
 
 ## JavaScript-only content
 Signs: raw HTML has an empty root (`<div id="root"></div>`, `<div id="__next"></div>` without content),
