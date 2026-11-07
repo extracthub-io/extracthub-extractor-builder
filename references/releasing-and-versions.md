@@ -127,8 +127,10 @@ probes the version's sample page. A probe that served the right page is judged b
 - **broken_selector** (the version becomes `broken` after 2 such probes in a row): a field with `required: true`
   is empty in every item, a list marked `required` is empty `[]`, or nothing at all was
   extracted (every field and list empty). An optional list (e.g. `reviews`) may be empty.
-- **degraded**: a required field is filled in fewer items than the test's fill rate (80% by default), a required list has fewer items than `minItems`, a type
-  drifted on a required field, or an owner custom check failed.
+- **degraded**: a required field is filled in fewer items than the test's fill rate (80% by default), a required
+  list has fewer items than `minItems`, a type drifted on a required field, or an owner custom check failed.
+- A required sub-field is judged only in the items that exist. Items missing it are dropped by the engine, so a
+  broken sub-field selector shows up as an empty list: mark the main list of a list page `required` to catch it.
 - **Optional fields never fail a probe**: null / empty is a normal value (their fill rate is recorded for the
   owner only). Block pages, tiny pages and a test URL that leads to another page are not counted as broken.
 

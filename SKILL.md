@@ -140,7 +140,8 @@ Rules that matter most:
   was parsed (title / name / id / price on a product page); do not mark everything. Leave optional any field a
   valid page may lack (ratings, discounts, zestimate, sale price, secondary images): null is then a normal value
   and never affects health. Health marks a version broken only when a required field is empty, a required list
-  is empty `[]`, or nothing at all was extracted (references/releasing-and-versions.md, "Health checks").
+  is empty `[]`, or nothing at all was extracted (references/releasing-and-versions.md, "Health checks"). An
+  optional list may be empty; on a list page mark the main list `required` (an empty main list = broken page).
 - Never put secrets (cookies, tokens) in headers or body; public and unlisted definitions are visible.
 - Custom `headers` (the `Cookie` header included) are not sent when the request goes through the scraping
   proxy (`useProxy: true`); they are only sent on direct requests (`useProxy: false`). Scraping providers manage

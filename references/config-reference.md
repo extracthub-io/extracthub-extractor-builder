@@ -98,8 +98,12 @@ array fields into one array instead.
   mark the parent field `required` too if an empty list should fail.
 - **Health checks judge only required fields.** An empty required field in a probe makes the version `broken`
   (2 failing probes in a row); optional fields may be null / empty and never fail a probe (their fill rate is only
-  shown to the owner). A version with no required field is broken only when nothing at all is extracted or a root
-  list is empty. See releasing-and-versions.md, "Health checks".
+  shown to the owner). Lists follow the same rule: an optional list may be empty `[]`; a `required` list that is
+  empty makes the version `broken`, one with fewer items than the test's `minItems` makes it `degraded`. A required
+  sub-field is judged only in the items that exist. A version with no required field and no required list is broken
+  only when nothing at all is extracted (every field and list empty). See releasing-and-versions.md, "Health checks".
+  - Trap: a required sub-field whose selector breaks drops every item, so the list comes back `[]`. If that list
+    is optional, health still passes. On a list page, mark the main list `required` so this is caught.
 
 Which fields to mark: `required: true` = the field must have a value on every page of this kind. Mark the 1-3
 fields that prove the page was parsed (title / name / id / price on a product page); do not mark everything.
