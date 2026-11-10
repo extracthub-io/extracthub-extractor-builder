@@ -52,8 +52,8 @@ This raw HTML is your validation sample for a plain fetch. Keep it on disk: step
 with `scripts/validate.mjs`, so you never paste a page into a tool call. Then decide
 (details and how to save a rendered sample: references/request-options.md, "Sample pages"):
 
-1. Is the data in the raw HTML? → plain fetch, no JS. If the site is open (your curl got the real page, no
-   captcha or bot wall), the direct tier (`useProxy: false`) is cheapest and a failed direct call is not
+1. Is the data in the raw HTML? → plain fetch, no JS. If the site is open (your curl got the real page, not an
+   error or challenge page), the direct tier (`useProxy: false`) is cheapest and a failed direct call is not
    charged, so it is worth one live test; otherwise, or if that test is blocked, `useProxy: true`.
 2. Is it in a `<script>` JSON block (`application/ld+json`, `script#__NEXT_DATA__`, `window.__STATE__ = {...}`,
    `self.__next_f.push`)? → still a plain fetch, read it with `jsonContent`. Often the most stable source.
@@ -70,9 +70,10 @@ with `scripts/validate.mjs`, so you never paste a page into a tool call. Then de
    never take a sample from a logged-in or personal browser profile.
 5. Data only in background responses → `renderJavascript` + `captureXhr` + `xhrUrlFilter`, `sourceType: "json"`.
 6. Clicks / scrolling / typing needed → `browserActions` (needs `renderJavascript`).
-7. Blocked or captcha HTML → keep `useProxy: true`, add `allowJsEscalation: true` or `proxyCountry`.
+7. An error, challenge or placeholder page instead of the content → keep `useProxy: true`; add `proxyCountry` if
+   the site serves by country, `allowJsEscalation: true` if the page sometimes needs JavaScript.
 8. Your own fetch is blocked, or only shows a JS wall ("enable JavaScript", a consent page)? That says
-   little about what ExtractHub's proxy gets: scraping providers often receive the full HTML without a
+   little about what ExtractHub's managed fetching gets: it often receives the full HTML without a
    browser (Google Search does). Do not jump to `renderJavascript`: get a sample THROUGH ExtractHub with
    `useProxy: true` and no JS (references/request-options.md, "Samples through ExtractHub"; one `premium`
    call). Switch to JS only if that sample lacks the data too. Do not work around the block yourself
@@ -87,9 +88,9 @@ with `scripts/validate.mjs`, so you never paste a page into a tool call. Then de
 
 Price tiers (names as `get_account` returns them): `direct` (`useProxy: false`, no JS) < `premium`
 (`useProxy: true`, no JS) < `premium_js` (JS rendering, XHR capture or browser actions, always through the
-proxy). Use the JS tier only when 1-3 fail, also through the proxy (point 8). If your curl is blocked but a
-browser shows data, assume the extractor needs the proxy (and maybe JS); a browser that loads fine hides
-that block, which is why the raw sample comes from curl.
+proxy). Use the JS tier only when 1-3 fail, also through the proxy (point 8). If your curl does not get the content but a
+browser shows data, assume the extractor needs `useProxy: true` (and maybe JS); a browser that loads fine hides
+that difference, which is why the raw sample comes from curl.
 
 ### 3. Write the definition
 Start from the closest file in [examples/](examples/README.md). Shape:
@@ -128,7 +129,7 @@ Rules that matter most:
   (the local checker then warns; the server accepts any name).
 - Pick the most faithful source: the same value often exists twice (a video description in the player JSON
   vs the rendered, truncated one). Prefer the structured source that holds the full value.
-- Sites that may answer a bot check, consent wall or partial page with HTTP 200 (YouTube
+- Sites that may answer a challenge page, consent wall or partial page with HTTP 200 (YouTube
   `playabilityStatus`, consent walls): mark the core fields `required: true` and add a status field from the
   source that is always present (e.g. `playabilityStatus.status`). A required field without a value fails the
   request (`required_fields_missing`), still charged because the page was fetched; batch and pipelines retry it

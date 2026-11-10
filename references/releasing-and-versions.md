@@ -40,7 +40,7 @@ the `X-Extractor-Version` header (and `Deprecation` / `Sunset` for a deprecated 
 3. A TEST API key (`exth_test_...`) never fetches: it returns simulated results. It is fine for checking the
    call shape, but use a LIVE key to test what the extractor really returns.
 4. Compare the live output with the dry run. Differences mean the live fetch sees different HTML (JS,
-   country, bot protection, A/B variant): see troubleshooting.md.
+   country, an error or challenge page, A/B variant): see troubleshooting.md.
 
 ## Releasing
 - Release only when the user agrees and the live test of the draft is right.

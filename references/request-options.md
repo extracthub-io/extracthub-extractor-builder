@@ -14,7 +14,7 @@ How ExtractHub fetches the page before extraction. These are the top-level keys 
 - Browser actions
 - XHR capture
 - POST requests and headers
-- Price tiers
+- Price tiers (and the X-Credit-Balance header)
 - Legacy keys
 - Studio import file
 
@@ -36,7 +36,7 @@ How ExtractHub fetches the page before extraction. These are the top-level keys 
 | `xhrUrlFilter` | string | | Comma-separated URL substrings to keep from the captured responses |
 | `browserActions` | array | | Steps run in the browser before the HTML is taken. Needs `renderJavascript` |
 | `proxyCountry` | ISO alpha-2 | default pool | Exit country, e.g. `US`, `GB`, `DE`, `ID` |
-| `allowJsEscalation` | boolean | `false` | If a plain fetch looks blocked/empty, retry once with JS rendering |
+| `allowJsEscalation` | boolean | `false` | If a plain fetch comes back empty or unusable, retry once with JS rendering |
 | `waitForSelector` | string (CSS) | | With `renderJavascript`: wait (max 15 s) until this element exists |
 | `waitTime` | number (ms) | | With `renderJavascript`: extra wait after `waitForSelector`, capped at 15000 |
 | `category` | enum | | Catalog category (a value, see "Catalog category" below): `ecommerce`, `news`, `social-media`, `job-listings`, `real-estate`, `events`, `research`, `travel`, `healthcare`, `finance`, `education`, `entertainment`, `sports`, `other` |
@@ -89,9 +89,9 @@ Rules:
   JavaScript: selectors on them pass the dry run and return empty in production.
 - Compare raw and rendered when unsure: data present only in the rendered file means `renderJavascript`;
   data in both means a plain fetch is enough (check `<script>` JSON blocks in the raw file first).
-- curl from your machine is an approximation: a residential IP may pass where ExtractHub's direct fetcher is
-  blocked, and the reverse. If curl gets a block / captcha page while a browser loads fine, plan for the
-  proxy; the live test on `@draft` is the final word.
+- curl from your machine is an approximation: your own network may get the page where ExtractHub's direct
+  fetcher does not, and the reverse. If curl gets an error or challenge page while a browser loads fine, plan
+  for `useProxy: true`; the live test on `@draft` is the final word.
 - Never sample from a logged-in or personal browser profile (cookies, account data, personalised prices):
   ExtractHub fetches anonymously, and the sample may contain private data.
 - Keep samples under 2 MB (the validator limit): save the page only, no assets.
@@ -118,7 +118,7 @@ Run the same clicks / scrolls as your `browserActions` before `page.content()` w
 
 ### Samples through ExtractHub
 
-When your own fetch cannot get the page (blocked, captcha, JS wall), or when a live run differs from the dry
+When your own fetch cannot get the page (an error, challenge or JavaScript-only page), or when a live run differs from the dry
 run, let ExtractHub fetch the sample with the exact request options of the extractor (proxy, country, JS,
 browser actions). This is the only sample that matches production exactly. Each fetch is one billed extract
 call at the extractor's tier: tell the user first.
@@ -156,10 +156,10 @@ as 5 KB of HTML). Use `raw_html: "link"` instead: the result then has `raw_html_
 | Raw HTML is an empty shell / skeleton, data appears only in a browser | `renderJavascript: true` (+ `waitForSelector` or `wait_for_element`) |
 | Data comes from a background API call you can see in the browser's network tab | Prefer calling that API URL directly with `sourceType: "json"`; otherwise `renderJavascript` + `captureXhr` + `xhrUrlFilter` |
 | Content appears after a click / scroll / typing | `renderJavascript: true` + `browserActions` |
-| Site serves different content or blocks by country | `proxyCountry` |
-| Plain fetch sometimes gets a block / captcha page | `allowJsEscalation: true` |
+| Site serves different content per country, or only to local visitors | `proxyCountry` |
+| Plain fetch sometimes comes back empty or as a placeholder page | `allowJsEscalation: true` |
 
-Default to `useProxy: true`: most sites block or degrade plain datacenter requests. Use `useProxy: false`
+Default to `useProxy: true` (managed fetching): many sites do not serve their full content to plain server requests. Use `useProxy: false`
 for open APIs and pages that work without it (demo sites, documentation, government and open-data pages,
 public APIs). When unsure, one live test on `@draft` with `useProxy: false` settles it cheaply: a failed
 direct call is not charged. Direct requests only reach public http(s) hosts (no
@@ -168,15 +168,15 @@ private, internal or ExtractHub addresses, also after a redirect), follow at mos
 If the site refuses the direct request (HTTP 403, 429 or 503), the error is `target_error` with a `hint`:
 "The site refused the direct request (HTTP 429). Retry with useProxy: true (premium tier)." Switch to
 `useProxy: true`; curl from your own machine succeeding does not mean ExtractHub's direct fetcher gets through.
-A direct `200` that looks like a block, captcha or consent page still succeeds, with
+A direct `200` that looks like a block, challenge or consent page still succeeds, with
 `metadata.warnings: [{ "code": "direct_fetch_looks_blocked", ... }]`: empty fields are likely, use the proxy.
 
 ## Proxy, country, JS escalation
 - `proxyCountry` must be a two-letter ISO 3166-1 code; empty or null means the default pool. Use it for
   geo-specific prices, languages or availability, and for sites that only answer local visitors.
-- `allowJsEscalation` only applies to fetches without `renderJavascript`. When the response looks blocked or
-  empty, ExtractHub retries once with JS rendering; that call is billed at the JS tier. Good safety net for
-  product pages on protected shops.
+- `allowJsEscalation` only applies to fetches without `renderJavascript`. When the response is empty or
+  unusable, ExtractHub retries once with JS rendering; that call is billed at the JS tier. Useful for pages
+  that sometimes need JavaScript to show their content.
 
 ## JavaScript rendering
 `renderJavascript: true` loads the page in a headless browser and extracts from the rendered DOM. It is
@@ -295,6 +295,13 @@ body says `charged: true`). Failures before any provider work are not charged, a
 Exact prices are on the ExtractHub pricing page and in the MCP `get_account` / `get_extractor` tools; do not
 quote numbers from memory. Owners may add a per-use price to public extractors. Test API keys are free and
 return simulated results (they never fetch the page).
+
+Credit balance: with a live API key, every realtime extract answer (GET / POST, charged or not, `202` async job,
+`402`) carries the response header `X-Credit-Balance`: your balance in USD with 4 decimals after this request
+(e.g. `12.3456`; a `202` already has the job's credit hold deducted). Watch it to top up before it runs out. Test
+keys never get it. When the balance is too low the API answers `402 insufficient_balance`, nothing is charged, and
+the body has `top_up_url` (the dashboard billing page, it opens the Add Funds dialog); MCP `get_account` returns
+the same link as `top_up_url`.
 
 ## Legacy keys
 `useCustomHeaders` (Studio form switch) is derived from `headers` and not needed in a definition (saved headers

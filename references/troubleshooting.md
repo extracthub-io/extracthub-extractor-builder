@@ -8,7 +8,7 @@ output, and the live `extract` result.
 - A field has the wrong value
 - A list has the wrong number of items
 - Everything is empty on the live run but the dry run worked
-- Blocked, captcha or error pages
+- Blocked, challenge or error pages
 - A version is marked broken by health checks
 - JavaScript-only content
 - JSON sources
@@ -51,22 +51,24 @@ output, and the live `extract` result.
   `renderJavascript`).
 - Country-specific content or consent walls: set `proxyCountry`; dismiss banners with a `click` action
   (`on_error: "skip"`).
-- Bot protection: see the next section.
+- An error or challenge page instead of the content: see the next section.
 - Ask for `return_raw_html` / look at the raw result if your tool offers it, and search it for your selectors.
   The MCP tool shortens it to ~64 KB; the REST endpoint returns the full page (request-options.md,
   "Samples through ExtractHub").
 - A different layout on that call (results can differ per call: fetch routes and site A/B layouts vary):
   sample a few fetches and compare them. Some empty results are genuine (e.g. a search page where the site showed only videos).
 
-## Blocked, captcha or error pages
-Signs: "Access denied", "Just a moment...", captcha markup, a tiny HTML, a 403/429/503 target status
+## Blocked, challenge or error pages
+Signs: "Access denied", "Just a moment...", a verification prompt, a tiny HTML, a 403/429/503 target status
 (API error `target_error`).
 - Make sure `useProxy: true`. Custom headers are not sent through the proxy, so a page that only works with
   a header (auth, Cookie) needs `useProxy: false` (headers are sent there as they are).
-- Add `allowJsEscalation: true` (retries blocked plain fetches with a browser; billed at the JS tier).
+- Add `allowJsEscalation: true` (retries an empty or unusable plain fetch with JavaScript rendering; billed at the JS tier).
 - Or switch to `renderJavascript: true` (+ `wait_for_element`).
 - Try a `proxyCountry` matching the site's market.
-- Prefer the site's JSON endpoints or embedded JSON: often less protected than the HTML.
+- Prefer the site's JSON endpoints or embedded JSON: often more stable than the HTML.
+- If the site does not allow automated access (its terms, a login, a paywall), stop and tell the user: do not
+  try to work around it.
 - A block page answered with HTTP 200 looks like a success with empty fields. Mark the core fields
   `required: true` so it fails visibly (`required_fields_missing`, still charged; config-reference.md).
 
@@ -108,7 +110,7 @@ skeleton placeholders, "Loading...".
 | `version_yanked` (410) | That exact version was withdrawn | Use `@N` or another version |
 | `upstream_error` (502) / `upstream_timeout` (504) | Fetching failed / timed out | Retry; reduce browser action waits; try without JS |
 | `target_error` (502) | The target page answered non-200 (blocked, 404) | Check the URL; see "Blocked" above |
-| `required_fields_missing` (422) | A `required` field was empty on the fetched page (bot check, consent wall, other layout); charged | Retry later; sample the failing response and compare layouts |
+| `required_fields_missing` (422) | A `required` field was empty on the fetched page (challenge page, consent wall, other layout); charged | Retry later; sample the failing response and compare layouts |
 | `queue_timeout` (503) / 202 job | Busy; the request became an async job | Poll the job (`get_job`) |
-| 402 | Not enough credit | Top up |
+| `insufficient_balance` (402) | Not enough credit; nothing was charged | Top up at the body's `top_up_url` (MCP: `get_account.top_up_url`) and retry. Watch the `X-Credit-Balance` response header (live keys) to top up earlier |
 | 403 on `@draft` | Only the owner can run the draft | Use your own extractor / a released pin |

@@ -91,7 +91,7 @@ array fields into one array instead.
   `[]`; `0` and `false` are values), the request fails with `required_fields_missing` (HTTP 422, the error lists
   the missing fields and a hint). The page was fetched, so it is **still charged** like any failure after a
   fetch (a failed direct call, `useProxy: false`, stays free). Batch items and pipeline steps retry it once.
-  Use it to catch bot checks, consent walls and partial pages that answer HTTP 200. A grouped field (`group`)
+  Use it to catch challenge pages, consent walls and partial pages that answer HTTP 200. A grouped field (`group`)
   is checked inside its group (`nest`) or as the merged list (`merge`).
 - **Sub-field (`subExtractor.fields[]` or `subFields[]`): incomplete items are dropped.** A list item (object)
   without the value is removed from the list; a single object becomes `null`. Never a request failure by itself:

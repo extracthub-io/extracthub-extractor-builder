@@ -35,7 +35,7 @@
       "pattern": "^([A-Za-z]{2})?$",
       "description": "Proxy exit country, ISO 3166-1 alpha-2 (US, GB, ID ...); empty or null = default"
     },
-    "allowJsEscalation": { "type": "boolean", "description": "Retry once with JS rendering when a plain fetch looks blocked or empty (that call is billed at the JS tier)" },
+    "allowJsEscalation": { "type": "boolean", "description": "Retry once with JS rendering when a plain fetch comes back empty or unusable (that call is billed at the JS tier)" },
     "waitForSelector": { "type": "string", "description": "With renderJavascript: wait (at most 15 s) until this CSS selector exists before extracting; a missing element never fails the request." },
     "waitTime": { "type": "number", "description": "With renderJavascript: extra wait in ms after waitForSelector, capped at 15000." },
     "category": {

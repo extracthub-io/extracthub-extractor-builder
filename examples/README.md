@@ -35,7 +35,7 @@ of parsing text. Output (shortened):
 Price, currency and SKU come from the schema.org JSON-LD block (stable, machine-readable); the rest from the
 DOM, always scoped to `main` so the header's logo `h1`, a header price box or the recommendations gallery are
 never the first match. Images read `data-src` because `src` is a placeholder. `allowJsEscalation` retries a
-blocked fetch with a browser; `proxyCountry: "US"` pins the market. If a shop has several `ld+json` blocks,
+plain fetch that comes back empty or unusable with JavaScript rendering; `proxyCountry: "US"` pins the market. If a shop has several `ld+json` blocks,
 check that the Product block is the first one.
 
 ```json
