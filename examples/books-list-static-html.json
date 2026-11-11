@@ -10,7 +10,6 @@
   "category": "ecommerce",
   "tags": ["books", "catalogue", "list"],
   "extractorConfig": {
-    "version": "v1.0",
     "fields": [
       {
         "name": "books",

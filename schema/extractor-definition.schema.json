@@ -149,7 +149,7 @@
     },
     "extractorConfig": {
       "type": "object",
-      "required": ["version", "fields"],
+      "required": ["fields"],
       "additionalProperties": false,
       "properties": {
         "version": { "const": "v1.0" },

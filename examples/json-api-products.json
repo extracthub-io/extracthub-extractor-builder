@@ -10,7 +10,6 @@
   "category": "research",
   "tags": ["json", "api"],
   "extractorConfig": {
-    "version": "v1.0",
     "sourceType": "json",
     "fields": [
       { "name": "total", "jsonPath": "total" },

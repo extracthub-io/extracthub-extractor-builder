@@ -12,7 +12,6 @@
   "category": "ecommerce",
   "tags": ["product", "json-ld"],
   "extractorConfig": {
-    "version": "v1.0",
     "fields": [
       { "name": "name", "selector": "main h1[itemprop=\"name\"]", "extract": "textContent", "transforms": ["normalizeWhitespace"] },
       { "name": "price", "selector": "script[type=\"application/ld+json\"]", "extract": "jsonContent", "jsonPaths": ["offers.price"], "transforms": ["toNumber"] },

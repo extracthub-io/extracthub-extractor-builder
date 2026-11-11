@@ -11,7 +11,6 @@
   "category": "ecommerce",
   "tags": ["post", "json", "api"],
   "extractorConfig": {
-    "version": "v1.0",
     "sourceType": "json",
     "fields": [
       { "name": "total", "jsonPath": "meta.total" },

@@ -19,10 +19,9 @@ ExtractHub engine runs; nothing else is accepted.
 ## Top level
 
 ```json
-{ "version": "v1.0", "sourceType": "html", "fields": [ ... ] }
+{ "sourceType": "html", "fields": [ ... ] }
 ```
 
-- `version`: always `"v1.0"`.
 - `sourceType`: `"html"` (default, omit it) or `"json"` (the response body is JSON: an API, or captured XHR).
 - `fields`: at least one. Each field becomes one key in the output, in order. Missing values are `null`.
 
@@ -257,7 +256,6 @@ selectors with generated classes).
 YouTube-like channel page (`var ytInitialData = {...}` → `script#__window__ytInitialData`):
 ```json
 {
-  "version": "v1.0",
   "sourceType": "html",
   "fields": [
     {
@@ -281,7 +279,6 @@ without `itemListElement` is skipped; a `BreadcrumbList` also has `itemListEleme
 list block more precisely or check the order):
 ```json
 {
-  "version": "v1.0",
   "sourceType": "html",
   "fields": [
     {
@@ -307,7 +304,6 @@ Use when the response itself is JSON (an API endpoint) or with captured XHR (bel
 
 ```json
 {
-  "version": "v1.0",
   "sourceType": "json",
   "fields": [
     { "name": "total", "jsonPath": "meta.total" },

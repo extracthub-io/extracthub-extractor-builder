@@ -10,7 +10,6 @@
   "category": "real-estate",
   "tags": ["nextjs", "embedded-json"],
   "extractorConfig": {
-    "version": "v1.0",
     "fields": [
       { "name": "city", "selector": "script#__NEXT_DATA__", "extract": "jsonContent", "jsonPaths": ["props.pageProps.search.city"] },
       { "name": "totalResults", "selector": "script#__NEXT_DATA__", "extract": "jsonContent", "jsonPaths": ["props.pageProps.search.total"] },

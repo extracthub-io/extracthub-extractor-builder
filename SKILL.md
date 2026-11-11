@@ -105,7 +105,6 @@ Start from the closest file in [examples/](examples/README.md). Shape:
   "useProxy": true,
   "renderJavascript": false,
   "extractorConfig": {
-    "version": "v1.0",
     "fields": [
       { "name": "name", "selector": "main h1", "extract": "textContent", "transforms": ["normalizeWhitespace"] },
       { "name": "price", "selector": "main [itemprop=\"price\"][content]", "extract": "attributeValue", "attributeName": "content", "transforms": ["toNumber"] },

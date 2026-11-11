@@ -318,7 +318,7 @@ ExtractHub Studio (Extractor Studio → ⋮ menu → Import) accepts a `.json` f
     "useProxy": true, "renderJs": false, "captureXhr": false,
     "xhrUrlFilter": "...", "country": "US", "allowJsEscalation": true
   },
-  "extractor": { "version": "v1.0", "fields": [ ... ] }
+  "extractor": { "fields": [ ... ] }
 }
 ```
 
