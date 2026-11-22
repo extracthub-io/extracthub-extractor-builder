@@ -137,3 +137,18 @@ probes the version's sample page. A probe that served the right page is judged b
 So mark as `required` the 1-3 fields that prove the page was parsed, and leave optional every field a valid page
 may lack (ratings, discounts, zestimate, sale price, secondary images). To watch an optional field without failing
 requests, add a custom check (`not_empty`) to the health test in Studio.
+
+With MCP:
+- `get_extractor_health` (free, test keys OK; same visibility as `get_extractor`): health per version and the recent
+  checks. For your own extractors also the tests (URL, billing, interval, next check) and each check's reason
+  (`empty: price`, `nothing extracted: every field is empty`, `HTTP 403`, `test URL leads to another page (...)`), HTTP
+  status, item count and field fill rates; other users' extractors show only status, time and version per check.
+  A pin narrows the versions (`@1`, `@1.2.3`); `next_steps` says what to do.
+- `run_health_check` (live key, owner only): runs one check now instead of waiting for the schedule, e.g. after
+  releasing a fix. `test_id` picks the test; without it the single active test of the newest version of the pinned
+  major runs (`test_required` with the list when there are several, `no_active_test` when there is none). Limits are
+  shared with the Studio "Run check now": one run per test per 5 minutes (`cooldown`) and 20 per account per hour
+  (`rate_limited`), both with `retry_after_seconds`. A test billed to you (`billing: "owner"`, private extractors) is
+  charged one probe at the extractor's price per call (`insufficient_balance` + `top_up_url` when the balance does not
+  cover it); platform tests are not charged to you. The result arrives when the probe has run: call
+  `get_extractor_health` again.

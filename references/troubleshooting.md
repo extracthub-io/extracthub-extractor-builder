@@ -75,13 +75,18 @@ Signs: "Access denied", "Just a moment...", a verification prompt, a tiny HTML, 
 ## A version is marked broken by health checks
 Health marks a version broken only when, on 2 probes in a row of the right page, a `required: true` field was
 empty, a required list was empty `[]`, or nothing at all was extracted. The run reason names the empty
-fields (`empty: price`) or says `nothing extracted: every field is empty`.
+fields (`empty: price`) or says `nothing extracted: every field is empty`. Read it with `get_extractor_health`
+(your own extractor: reasons, test URLs and fill rates of the recent checks).
 1. A required field that a valid page may lack (rating, discount, zestimate, sale price): make it optional. That is
    a schema change (major version), and null then never fails a request or a probe.
 2. A required field that should always be there: the selector broke. Fix it (patch) using the stored HTML sample of
    the failed run, then release.
 3. Optional fields never cause `broken`; if the reason lists only optional fields, the version predates the
    required-fields rule and the next probe settles it.
+4. `test URL leads to another page (...)`: the test URL redirects elsewhere. Set a preview page of a working page
+   (`set_preview_page`, the default test follows it) or change the test URL in the Studio Health panel.
+5. After releasing the fix, run `run_health_check` (live key) on the new version, then `get_extractor_health` to see
+   the result.
 
 ## JavaScript-only content
 Signs: raw HTML has an empty root (`<div id="root"></div>`, `<div id="__next"></div>` without content),

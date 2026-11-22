@@ -234,6 +234,9 @@ example url, or `url`; tell the user), `"sample_html"`, `"job_id"` (your job tha
 Run it with `dry_run: true` first (price, page size, extracted fields; nothing fetched). `get_extractor` shows each
 version's `preview` (`available`, `source_url`, `fetched_at`, `size`). After `update_extractor` changes `url`, the
 released preview still shows the old page until you call `set_preview_page`.
+Health: `get_extractor_health` (free, test keys OK) shows why a version is degraded / broken (recent checks; for your
+own extractors the test URLs, reasons and fill rates). After releasing a fix, `run_health_check` (live key, owner) runs
+one check now; read the result with `get_extractor_health`.
 Details: references/releasing-and-versions.md.
 
 ### Without the MCP server
