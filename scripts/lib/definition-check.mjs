@@ -142,13 +142,15 @@ const CAMEL = /^[a-z][A-Za-z0-9]*$/;
 // ---------------------------------------------------------------------------
 
 /** Transforms written as one-key objects with options. Every other transform is a plain name (schema $defs.transformName). */
-export const TRANSFORMS_WITH_OPTIONS = ['split', 'after', 'before', 'between', 'nth', 'removeQueryParams'];
+export const TRANSFORMS_WITH_OPTIONS = ['split', 'after', 'before', 'between', 'nth', 'removeQueryParams', 'template'];
 const MAX_OBJECT_TRANSFORMS = 20;
 
 const optionText = (v) => typeof v === 'string' && v.length >= 1 && v.length <= 200;
 const isIndex = (v) => Number.isInteger(v) && v !== 0;
 const isNames = (v) => Array.isArray(v) && v.length >= 1 && v.length <= 50 && v.every(optionText) && v.every((n) => !n.slice(0, -1).includes('*'));
 const onlyKeys = (o, allowed) => Object.keys(o).every((k) => allowed.includes(k));
+/** template text: 1-500 characters with {value} exactly once */
+const isTemplateText = (v) => typeof v === 'string' && v.length >= 1 && v.length <= 500 && v.split('{value}').length === 2;
 
 const TEXT_POSITION = {
 	expects: 'a text (1-200 characters) or { "text": string, "last"?: boolean }',
@@ -174,6 +176,10 @@ const TRANSFORM_OPTIONS = {
 	removeQueryParams: {
 		expects: 'a list of 1-50 parameter names ("utm_*" = prefix wildcard) or { "names": [...] }',
 		ok: (v) => isNames(v) || (isObject(v) && onlyKeys(v, ['names']) && isNames(v.names)),
+	},
+	template: {
+		expects: 'a text (1-500 characters) with {value} exactly once, or { "text": string, "encode"?: boolean } (encode defaults to true)',
+		ok: (v) => isTemplateText(v) || (isObject(v) && onlyKeys(v, ['text', 'encode']) && isTemplateText(v.text) && (v.encode === undefined || typeof v.encode === 'boolean')),
 	},
 };
 

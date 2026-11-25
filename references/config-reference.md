@@ -419,7 +419,8 @@ Empty values:
 
 Written as an object with one key, the transform name, holding its options: the shorthand (main option only) or
 the full form. Matching is plain text and case-sensitive. Regex transforms are not available (yet): use these.
-Text input only: `null` stays `null`, numbers and other non-strings pass through unchanged (`nth` takes an array).
+Text input only: `null` stays `null`, numbers and other non-strings pass through unchanged (`nth` takes an array;
+`template` also writes numbers and booleans, and turns `null` / `""` into `null`).
 
 | Transform | Shorthand / full form | Result | No match |
 |---|---|---|---|
@@ -428,12 +429,19 @@ Text input only: `null` stays `null`, numbers and other non-strings pass through
 | `before` | `{ "before": "?" }` / `{ "before": { "text": "/", "last": true } }` | text before the first (or last) occurrence | `null` |
 | `between` | `{ "between": ["!3d", "!"] }` / `{ "between": { "start": "!3d", "end": "!" } }` | after the first `start`, up to the next `end` | no `start`: `null`; no `end`: rest of the text |
 | `nth` | `{ "nth": 2 }` / `{ "nth": { "index": -1 } }` | array element, 1-based, negative from the end (`-1` = last) | out of range: `null` |
+| `template` | `{ "template": "https://www.google.com/search?kgmid={value}" }` / `{ "template": { "text": "...{value}...", "encode": false } }` | the text with `{value}` replaced by the value, URL-encoded first (`encodeURIComponent`) unless `"encode": false` | `null` / `""`: `null`; arrays and objects unchanged |
 | `removeQueryParams` | `{ "removeQueryParams": ["utm_*", "fbclid"] }` / `{ "removeQueryParams": { "names": [...] } }` | the URL without those query parameters (`*` at the end = prefix), relative URLs stay relative, `#fragment` kept, `?` dropped when empty | not a URL: unchanged |
 
-Limits: option texts 1-200 characters, `limit` 1-10000, 1-50 `names`, `index` a non-zero integer, at most 20 object
-entries per field. A bad entry is an error (`unknown_transform`, or `invalid_transform_options` with what is wrong),
+Limits: option texts 1-200 characters (`template` text 1-500, with `{value}` exactly once), `limit` 1-10000, 1-50
+`names`, `index` a non-zero integer, `encode` a boolean, at most 20 object entries per field. A bad entry is an error (`unknown_transform`, or `invalid_transform_options` with what is wrong),
 with its path, e.g. `extractorConfig.fields[2].transforms[1]`. `nth` is an array transform: on an `isArray` field,
 `["trim", { "nth": 2 }]` trims each element, then picks the second.
+
+`template` builds a text or a link around the value. `encode` defaults to `true`: the value is URL-encoded, so an id
+such as `/g/11b6x` becomes `%2Fg%2F11b6x` (`:` becomes `%3A`). Set `"encode": false` when the value is already a URL
+part that must stay as it is (e.g. a Google Maps `0x...:0x...` place id, whose `:` must not become `%3A`). Only the one
+`{value}` is replaced; the rest of the text is kept as written. It runs per value: on an `isArray` field, each element
+gets its own link. The result is always a string (a later number transform wins); it is not fetched or checked.
 
 Examples (Google Maps place link `.../data=!3d39.7259254!4d-105.018292!...!19sChIJXQdb...?authuser=0`, Google local
 results with `·`-separated text lines):
@@ -454,6 +462,18 @@ results with `·`-separated text lines):
   "transforms": [{ "after": "pv-" }] },
 { "name": "website", "selector": "a[data-value=\"Website\"]", "extract": "attributeValue", "attributeName": "href",
   "transforms": [{ "removeQueryParams": ["utm_*"] }] }
+```
+
+Links built with `template`: the Google Maps search result link holds the place id after `!1s`
+(`.../data=!4m7!3m6!1s0x876c7951ce5b075d:0x5224a0bd2f50c28a!8m2...`); the reviews page of the same place, kept raw
+(`"encode": false`), and a Google search link from a knowledge graph id (`/g/11b6x...`, encoded):
+
+```json
+{ "name": "placeReviewsUrl", "selector": "a.hfpxzc", "extract": "attributeValue", "attributeName": "href",
+  "transforms": [{ "between": ["!1s", "!"] },
+    { "template": { "text": "https://www.google.com/maps/place/data=!4m4!3m3!1s{value}!9m1!1b1?hl=en&gl=us", "encode": false } }] },
+{ "name": "knowledgeGraphUrl", "selector": "[data-kgmid]", "extract": "attributeValue", "attributeName": "data-kgmid",
+  "transforms": [{ "template": "https://www.google.com/search?kgmid={value}" }] }
 ```
 
 ## Output types and versions
