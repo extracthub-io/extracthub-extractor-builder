@@ -142,7 +142,7 @@ const CAMEL = /^[a-z][A-Za-z0-9]*$/;
 // ---------------------------------------------------------------------------
 
 /** Transforms written as one-key objects with options. Every other transform is a plain name (schema $defs.transformName). */
-export const TRANSFORMS_WITH_OPTIONS = ['split', 'after', 'before', 'between', 'nth', 'removeQueryParams', 'template'];
+export const TRANSFORMS_WITH_OPTIONS = ['split', 'after', 'before', 'between', 'nth', 'removeQueryParams', 'template', 'removeElements', 'dropIfStartsWith'];
 const MAX_OBJECT_TRANSFORMS = 20;
 
 const optionText = (v) => typeof v === 'string' && v.length >= 1 && v.length <= 200;
@@ -151,6 +151,54 @@ const isNames = (v) => Array.isArray(v) && v.length >= 1 && v.length <= 50 && v.
 const onlyKeys = (o, allowed) => Object.keys(o).every((k) => allowed.includes(k));
 /** template text: 1-500 characters with {value} exactly once */
 const isTemplateText = (v) => typeof v === 'string' && v.length >= 1 && v.length <= 500 && v.split('{value}').length === 2;
+/** A list (or one item as a string, or the full form { [key]: [...] }) of 1..max items that all pass `item` */
+const textList = (v, max, key, item) => {
+	const list = typeof v === 'string' ? [v] : Array.isArray(v) ? v : isObject(v) && onlyKeys(v, [key]) && Array.isArray(v[key]) ? v[key] : null;
+	return list !== null && list.length >= 1 && list.length <= max && list.every(item);
+};
+
+/**
+ * CSS selector pre-check for removeElements (the server compiles it with its HTML engine and is the authority): not
+ * blank, brackets / parentheses / quotes balanced, no empty part between commas, no pseudo-element ("::before").
+ */
+export function cssSelectorProblem(selector) {
+	if (typeof selector !== 'string' || selector.trim() === '') return 'empty selector';
+	const closers = { '(': ')', '[': ']' };
+	const stack = [];
+	let quote = null;
+	let part = '';
+	for (let i = 0; i < selector.length; i++) {
+		const c = selector[i];
+		if (quote) {
+			if (c === '\\') i++;
+			else if (c === quote) quote = null;
+			part += 'x';
+			continue;
+		}
+		if (c === '\\') {
+			i++;
+			part += 'x';
+		} else if (c === '"' || c === "'") {
+			quote = c;
+			part += 'x';
+		} else if (c in closers) {
+			stack.push(closers[c]);
+			part += c;
+		} else if (c === ')' || c === ']') {
+			if (stack.pop() !== c) return `unbalanced "${c}"`;
+			part += c;
+		} else if (c === ',' && stack.length === 0) {
+			if (part.trim() === '') return 'empty part between commas';
+			part = '';
+		} else part += c;
+	}
+	if (quote) return 'unclosed quote';
+	if (stack.length) return `missing "${stack[stack.length - 1]}"`;
+	if (part.trim() === '') return 'empty part between commas';
+	if (/::/.test(selector.replace(/"[^"]*"|'[^']*'|\[[^\]]*\]/g, ''))) return 'pseudo-elements ("::before") are not supported';
+	return null;
+}
+const isSelector = (v) => optionText(v) && cssSelectorProblem(v) === null;
 
 const TEXT_POSITION = {
 	expects: 'a text (1-200 characters) or { "text": string, "last"?: boolean }',
@@ -180,6 +228,14 @@ const TRANSFORM_OPTIONS = {
 	template: {
 		expects: 'a text (1-500 characters) with {value} exactly once, or { "text": string, "encode"?: boolean } (encode defaults to true)',
 		ok: (v) => isTemplateText(v) || (isObject(v) && onlyKeys(v, ['text', 'encode']) && isTemplateText(v.text) && (v.encode === undefined || typeof v.encode === 'boolean')),
+	},
+	removeElements: {
+		expects: 'a CSS selector (1-200 characters, :has() supported), a list of 1-10 selectors, or { "selectors": [...] }',
+		ok: (v) => textList(v, 10, 'selectors', isSelector),
+	},
+	dropIfStartsWith: {
+		expects: 'a text (1-200 characters), a list of 1-20 texts, or { "prefixes": [...] }',
+		ok: (v) => textList(v, 20, 'prefixes', optionText),
 	},
 };
 

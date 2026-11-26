@@ -78,6 +78,9 @@
       "pattern": "^(?:(?!\\{value\\})[\\s\\S])*\\{value\\}(?:(?!\\{value\\})[\\s\\S])*$",
       "description": "Text with {value} exactly once"
     },
+    "transformSelector": { "type": "string", "minLength": 1, "maxLength": 200, "pattern": "\\S", "description": "A CSS selector (:has() supported)" },
+    "transformSelectors": { "type": "array", "minItems": 1, "maxItems": 10, "items": { "$ref": "#/$defs/transformSelector" } },
+    "transformPrefixes": { "type": "array", "minItems": 1, "maxItems": 20, "items": { "$ref": "#/$defs/transformText" } },
     "transformIndex": { "type": "integer", "description": "1-based, negative from the end (-1 = last), never 0" },
     "parameterisedTransform": {
       "type": "object",
@@ -131,6 +134,22 @@
               "properties": { "text": { "$ref": "#/$defs/transformTemplateText" }, "encode": { "type": "boolean" } },
               "additionalProperties": false
             }
+          ]
+        },
+        "removeElements": {
+          "description": "HTML string without the elements matching any CSS selector (with their content); use before toMarkdown",
+          "anyOf": [
+            { "$ref": "#/$defs/transformSelector" },
+            { "$ref": "#/$defs/transformSelectors" },
+            { "type": "object", "required": ["selectors"], "properties": { "selectors": { "$ref": "#/$defs/transformSelectors" } }, "additionalProperties": false }
+          ]
+        },
+        "dropIfStartsWith": {
+          "description": "Array transform: drops the string items whose trimmed text starts with one of the prefixes (case-sensitive); other items kept",
+          "anyOf": [
+            { "$ref": "#/$defs/transformText" },
+            { "$ref": "#/$defs/transformPrefixes" },
+            { "type": "object", "required": ["prefixes"], "properties": { "prefixes": { "$ref": "#/$defs/transformPrefixes" } }, "additionalProperties": false }
           ]
         }
       },

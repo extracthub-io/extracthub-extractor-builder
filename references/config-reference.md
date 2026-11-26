@@ -376,7 +376,10 @@ Text:
 - `decodeHtml`: decode every named and numeric HTML entity, as textContent does (text is already decoded by textContent; use it on `innerHTML` / JSON strings).
 - `removeCommonJunk`: remove `[removed]`, `[deleted]`, `advertisement`.
 - `reverse`: reverse a string.
-- `toMarkdown`: HTML → Markdown (use with `extract: "innerHTML"`).
+- `toMarkdown`: HTML → Markdown (use with `extract: "innerHTML"`). A ` - ` or ` # ` inside a sentence stays in the
+  line (`<p><strong>KOMPAS.com</strong> - Pemerintah ...</p>` → `**KOMPAS.com** - Pemerintah ...`, `2020 - 2021`
+  unchanged); only a list item or heading glued to the previous text without a space starts a new line. Nested
+  `<strong><strong>` gives one `**...**`. To drop blocks (ads, "Baca juga" links) first, put `removeElements` before it.
 
 URLs:
 - `toAbsoluteUrl`: resolve a relative URL against the target URL (works on arrays too). Use it on every link and image.
@@ -420,7 +423,7 @@ Empty values:
 Written as an object with one key, the transform name, holding its options: the shorthand (main option only) or
 the full form. Matching is plain text and case-sensitive. Regex transforms are not available (yet): use these.
 Text input only: `null` stays `null`, numbers and other non-strings pass through unchanged (`nth` takes an array;
-`template` also writes numbers and booleans, and turns `null` / `""` into `null`).
+`template` also writes numbers and booleans, and turns `null` / `""` into `null`; `dropIfStartsWith` takes an array).
 
 | Transform | Shorthand / full form | Result | No match |
 |---|---|---|---|
@@ -431,9 +434,12 @@ Text input only: `null` stays `null`, numbers and other non-strings pass through
 | `nth` | `{ "nth": 2 }` / `{ "nth": { "index": -1 } }` | array element, 1-based, negative from the end (`-1` = last) | out of range: `null` |
 | `template` | `{ "template": "https://www.google.com/search?kgmid={value}" }` / `{ "template": { "text": "...{value}...", "encode": false } }` | the text with `{value}` replaced by the value, URL-encoded first (`encodeURIComponent`) unless `"encode": false` | `null` / `""`: `null`; arrays and objects unchanged |
 | `removeQueryParams` | `{ "removeQueryParams": ["utm_*", "fbclid"] }` / `{ "removeQueryParams": { "names": [...] } }` | the URL without those query parameters (`*` at the end = prefix), relative URLs stay relative, `#fragment` kept, `?` dropped when empty | not a URL: unchanged |
+| `removeElements` | `{ "removeElements": "p:has(a.inner-link-baca-juga)" }` / `{ "removeElements": [".ad", "aside"] }` / `{ "removeElements": { "selectors": [...] } }` | the HTML without every element matching a CSS selector (with its content; `:has()`, `:not()`, attributes, combinators) | nothing matched: unchanged; all removed: `""` |
+| `dropIfStartsWith` | `{ "dropIfStartsWith": "Baca juga" }` / `{ "dropIfStartsWith": ["Baca juga", "Simak juga"] }` / `{ "dropIfStartsWith": { "prefixes": [...] } }` | the list without the text items whose trimmed text starts with a prefix (case-sensitive); other items kept | not a list: unchanged |
 
 Limits: option texts 1-200 characters (`template` text 1-500, with `{value}` exactly once), `limit` 1-10000, 1-50
-`names`, `index` a non-zero integer, `encode` a boolean, at most 20 object entries per field. A bad entry is an error (`unknown_transform`, or `invalid_transform_options` with what is wrong),
+`names`, `index` a non-zero integer, `encode` a boolean, 1-10 `removeElements` selectors (a selector the HTML engine
+cannot parse is `invalid_transform_options`), 1-20 `dropIfStartsWith` prefixes, at most 20 object entries per field. A bad entry is an error (`unknown_transform`, or `invalid_transform_options` with what is wrong),
 with its path, e.g. `extractorConfig.fields[2].transforms[1]`. `nth` is an array transform: on an `isArray` field,
 `["trim", { "nth": 2 }]` trims each element, then picks the second.
 
@@ -474,6 +480,18 @@ Links built with `template`: the Google Maps search result link holds the place 
     { "template": { "text": "https://www.google.com/maps/place/data=!4m4!3m3!1s{value}!9m1!1b1?hl=en&gl=us", "encode": false } }] },
 { "name": "knowledgeGraphUrl", "selector": "[data-kgmid]", "extract": "attributeValue", "attributeName": "data-kgmid",
   "transforms": [{ "template": "https://www.google.com/search?kgmid={value}" }] }
+```
+
+Clean article text (Kompas: a "Baca juga" paragraph with a related link between the paragraphs). `removeElements`
+works on HTML (an `innerHTML` value, per element on `isArray` fields) and runs before `toMarkdown`; `dropIfStartsWith`
+works on a list, so on an `isArray` field `["trim", { "dropIfStartsWith": "Baca juga" }]` trims each element, then
+drops the matching ones:
+
+```json
+{ "name": "content", "selector": "div.read__content", "extract": "innerHTML",
+  "transforms": [{ "removeElements": "p:has(a.inner-link-baca-juga)" }, "toMarkdown"] },
+{ "name": "paragraphs", "selector": "div.read__content > p", "isArray": true,
+  "transforms": ["trim", { "dropIfStartsWith": "Baca juga" }] }
 ```
 
 ## Output types and versions
